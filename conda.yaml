@@ -1,0 +1,15 @@
+name: unitran
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.10
+  - pip
+  - numpy=1.26.4
+  - scipy=1.13.1
+  - scikit-learn=1.5.2
+  - matplotlib=3.9.2
+  - tqdm=4.66.5
+  - pip:
+      - --extra-index-url https://download.pytorch.org/whl/cu128
+      - torch==2.10.0+cu128
