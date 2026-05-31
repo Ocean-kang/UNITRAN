@@ -15,6 +15,7 @@ The repository currently supports the following workflows:
 5. Run streaming full-batch KMeans over extracted patch tokens.
 6. Visualize top-k patch tokens for selected KMeans clusters and save patch/attention collages.
 7. Match high-K KMeans centroids to low-K centroids for cross-granularity inspection.
+8. Run KMeans over existing caption/text embeddings and visualize vision/caption cluster centroids in one 2D space.
 
 No additional model architecture, dataset, training framework, or evaluation metric is introduced by the current codebase.
 
@@ -32,7 +33,9 @@ UNITRAN/
 │   ├── run_extract_coco_dinov2_patch_4gpu.sh
 │   ├── run_kmeans_coco_dinov2_patch.sh
 │   ├── run_visualize_cluster_topk_patches.sh
-│   └── run_match_kmeans_centroids.sh
+│   ├── run_match_kmeans_centroids.sh
+│   ├── run_kmeans_caption_embeddings.sh
+│   └── run_visualize_vision_caption_centroids_2d.sh
 ├── tools/
 │   ├── train_unitran.py
 │   ├── evaluate_distribution.py
@@ -40,7 +43,8 @@ UNITRAN/
 │   ├── extract_coco_dinov2_patch.py
 │   ├── cluster_coco_dinov2_streaming.py
 │   ├── visualize_cluster_topk_patches.py
-│   └── match_kmeans_centroids.py
+│   ├── match_kmeans_centroids.py
+│   └── cluster_caption_embeddings.py
 └── unitran/
     ├── __init__.py
     └── clustering/
@@ -52,11 +56,12 @@ UNITRAN/
 
 - `tools/train_unitran.py`: trains the vision-to-text orthogonal mapping `W`.
 - `tools/evaluate_distribution.py`: computes distribution metrics between two embedding sets.
-- `tools/visualize_embeddings_2d.py`: visualizes embedding spaces with PCA or t-SNE.
+- `tools/visualize_embeddings_2d.py`: visualizes embedding spaces or `.npy` centroid arrays with PCA or t-SNE.
 - `tools/extract_coco_dinov2_patch.py`: extracts DINOv2 patch tokens from COCO images.
 - `tools/cluster_coco_dinov2_streaming.py`: runs streaming KMeans over patch-token shards.
 - `tools/visualize_cluster_topk_patches.py`: visualizes top-k patches for selected clusters.
 - `tools/match_kmeans_centroids.py`: matches high-K centroids to low-K centroids by cosine similarity.
+- `tools/cluster_caption_embeddings.py`: clusters existing caption/text embeddings with KMeans.
 - `unitran/clustering/faiss_kmeans.py`: retained FAISS KMeans helper; not used by the default scripts.
 - `scripts/*.sh`: reproducible shell launchers for the current COCO patch-token workflow.
 - `docs/repository_refine_audit.md`: audit and structure-refine notes.
@@ -282,7 +287,70 @@ feature/coco2014_dinov2_vitb14_448/centroid_match/k4096_to_k512/
 
 Each row maps one low-K centroid index to one high-K centroid index. The script uses one-to-one Hungarian matching, so high-K indices are unique and total cosine similarity across all low-K centroids is maximized.
 
-## Workflow 5: train UNITRAN mapping
+## Workflow 5: cluster caption/text embeddings
+
+This workflow assumes caption/text embeddings already exist as either:
+
+```text
+.pt dict containing text_feats
+.npy array with shape [num_captions, dim]
+```
+
+Run the launcher after editing `INPUT_PT` if needed:
+
+```bash
+bash scripts/run_kmeans_caption_embeddings.sh
+```
+
+Equivalent command:
+
+```bash
+python tools/cluster_caption_embeddings.py \
+  --input_pt feature/text_embeddings.pt \
+  --text_key text_feats \
+  --k 512 \
+  --preprocess l2 \
+  --out_dir feature/caption_kmeans \
+  --overwrite
+```
+
+Important outputs:
+
+```text
+feature/caption_kmeans/
+├── centroids_k512_fp32.npy
+├── centroids_k512_fp16.npy
+├── cluster_ids_k512_int32.npy
+├── cluster_counts_k512.npy
+└── config_k512.json
+```
+
+`--preprocess l2` is the default because cosine-style embedding comparison is usually done after L2 normalization. The saved centroids can be passed directly to `tools/visualize_embeddings_2d.py`.
+
+## Workflow 6: visualize vision/caption cluster centroids
+
+After vision KMeans and caption KMeans both finish, run:
+
+```bash
+bash scripts/run_visualize_vision_caption_centroids_2d.sh
+```
+
+Equivalent command:
+
+```bash
+python tools/visualize_embeddings_2d.py \
+  --vision_pt feature/coco2014_dinov2_vitb14_448/kmeans/centroids_k512_fp32.npy \
+  --text_pt feature/caption_kmeans/centroids_k512_fp32.npy \
+  --method pca \
+  --preprocess l2 \
+  --out_dir outputs/vis \
+  --prefix vision_caption_centroids_k512 \
+  --title "Vision/caption KMeans centroids"
+```
+
+If the vision and caption centroid dimensions differ, `tools/visualize_embeddings_2d.py` keeps the existing zero-padding behavior before projection.
+
+## Workflow 7: train UNITRAN mapping
 
 ```bash
 CUDA_VISIBLE_DEVICES=0 python tools/train_unitran.py \
@@ -301,7 +369,7 @@ outputs/unitran/
 └── result_dinov2_to_text_seed0.json
 ```
 
-## Workflow 6: compute distribution metrics
+## Workflow 8: compute distribution metrics
 
 If one `.pt` file contains both `vision_feats` and `text_feats`:
 
@@ -327,7 +395,7 @@ python tools/evaluate_distribution.py \
   --out_json outputs/distribution_metric.json
 ```
 
-## Workflow 7: visualize embedding spaces
+## Workflow 9: visualize embedding spaces
 
 Before applying `W`:
 
@@ -365,6 +433,7 @@ python -m py_compile \
   tools/visualize_embeddings_2d.py \
   tools/extract_coco_dinov2_patch.py \
   tools/cluster_coco_dinov2_streaming.py \
+  tools/cluster_caption_embeddings.py \
   tools/visualize_cluster_topk_patches.py \
   unitran/clustering/faiss_kmeans.py
 
@@ -373,6 +442,7 @@ python tools/evaluate_distribution.py --help
 python tools/visualize_embeddings_2d.py --help
 python tools/extract_coco_dinov2_patch.py --help
 python tools/cluster_coco_dinov2_streaming.py --help
+python tools/cluster_caption_embeddings.py --help
 python tools/visualize_cluster_topk_patches.py --help
 ```
 

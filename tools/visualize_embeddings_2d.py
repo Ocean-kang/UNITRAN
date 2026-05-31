@@ -36,6 +36,8 @@ def pad_to_same_dim_v2(tensor_a, tensor_b):
 
 
 def safe_torch_load(path):
+    if Path(path).suffix == ".npy":
+        return np.load(path)
     try:
         return torch.load(path, map_location="cpu", weights_only=True)
     except TypeError:
