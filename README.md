@@ -14,6 +14,7 @@ The repository currently supports the following workflows:
 4. Extract MS COCO 2014 DINOv2 patch tokens into sharded memory-mapped files.
 5. Run streaming full-batch KMeans over extracted patch tokens.
 6. Visualize top-k patch tokens for selected KMeans clusters and save patch/attention collages.
+7. Match high-K KMeans centroids to low-K centroids for cross-granularity inspection.
 
 No additional model architecture, dataset, training framework, or evaluation metric is introduced by the current codebase.
 
@@ -30,14 +31,16 @@ UNITRAN/
 ├── scripts/
 │   ├── run_extract_coco_dinov2_patch_4gpu.sh
 │   ├── run_kmeans_coco_dinov2_patch.sh
-│   └── run_visualize_cluster_topk_patches.sh
+│   ├── run_visualize_cluster_topk_patches.sh
+│   └── run_match_kmeans_centroids.sh
 ├── tools/
 │   ├── train_unitran.py
 │   ├── evaluate_distribution.py
 │   ├── visualize_embeddings_2d.py
 │   ├── extract_coco_dinov2_patch.py
 │   ├── cluster_coco_dinov2_streaming.py
-│   └── visualize_cluster_topk_patches.py
+│   ├── visualize_cluster_topk_patches.py
+│   └── match_kmeans_centroids.py
 └── unitran/
     ├── __init__.py
     └── clustering/
@@ -53,6 +56,7 @@ UNITRAN/
 - `tools/extract_coco_dinov2_patch.py`: extracts DINOv2 patch tokens from COCO images.
 - `tools/cluster_coco_dinov2_streaming.py`: runs streaming KMeans over patch-token shards.
 - `tools/visualize_cluster_topk_patches.py`: visualizes top-k patches for selected clusters.
+- `tools/match_kmeans_centroids.py`: matches high-K centroids to low-K centroids by cosine similarity.
 - `unitran/clustering/faiss_kmeans.py`: retained FAISS KMeans helper; not used by the default scripts.
 - `scripts/*.sh`: reproducible shell launchers for the current COCO patch-token workflow.
 - `docs/repository_refine_audit.md`: audit and structure-refine notes.
@@ -247,7 +251,38 @@ feature/coco2014_dinov2_vitb14_448/assignment/
 
 For example, if clustering was run with `--k 512`, visualization should also use `--k 512`.
 
-## Workflow 4: train UNITRAN mapping
+## Workflow 4: match high-K centroids to low-K centroids
+
+After running KMeans for multiple K values, for example `512` and `4096`, run:
+
+```bash
+bash scripts/run_match_kmeans_centroids.sh
+```
+
+Equivalent command:
+
+```bash
+python tools/match_kmeans_centroids.py \
+  --feature_dir feature/coco2014_dinov2_vitb14_448 \
+  --small_k 512 \
+  --large_k 4096 \
+  --overwrite
+```
+
+Important outputs:
+
+```text
+feature/coco2014_dinov2_vitb14_448/centroid_match/k4096_to_k512/
+├── matches.jsonl
+├── matches.csv
+├── matched_pair_indices.npy
+├── matched_large_indices.npy
+└── config.json
+```
+
+Each row maps one low-K centroid index to one high-K centroid index. The script uses one-to-one Hungarian matching, so high-K indices are unique and total cosine similarity across all low-K centroids is maximized.
+
+## Workflow 5: train UNITRAN mapping
 
 ```bash
 CUDA_VISIBLE_DEVICES=0 python tools/train_unitran.py \
@@ -266,7 +301,7 @@ outputs/unitran/
 └── result_dinov2_to_text_seed0.json
 ```
 
-## Workflow 5: compute distribution metrics
+## Workflow 6: compute distribution metrics
 
 If one `.pt` file contains both `vision_feats` and `text_feats`:
 
@@ -292,7 +327,7 @@ python tools/evaluate_distribution.py \
   --out_json outputs/distribution_metric.json
 ```
 
-## Workflow 6: visualize embedding spaces
+## Workflow 7: visualize embedding spaces
 
 Before applying `W`:
 
