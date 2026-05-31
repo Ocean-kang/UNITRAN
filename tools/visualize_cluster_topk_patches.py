@@ -2,8 +2,8 @@
 """
 Visualize top-k patch tokens for each KMeans cluster.
 
-This script uses files produced by `extract_coco_dinov2_patch.py` and
-`cluster_coco_dinov2_streaming.py`:
+This script uses files produced by `tools/extract_coco_dinov2_patch.py` and
+`tools/cluster_coco_dinov2_streaming.py`:
 
 feature/coco2014_dinov2_vitb14_448/
   images.jsonl

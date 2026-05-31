@@ -1,3 +1,9 @@
+"""FAISS-based KMeans helper retained from the original repository.
+
+This module is not used by the default UNITRAN / COCO patch-token scripts.
+It is kept as a lightweight reusable helper without changing its original behavior.
+"""
+
 import torch
 
 import faiss
