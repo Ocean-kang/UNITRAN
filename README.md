@@ -17,6 +17,7 @@ The repository currently supports the following workflows:
 7. Match high-K KMeans centroids to low-K centroids for cross-granularity inspection.
 8. Run KMeans over existing caption/text embeddings and visualize vision/caption cluster centroids in one 2D space.
 9. Query MS COCO captions by image file name.
+10. Query which KMeans cluster each patch token of one image belongs to.
 
 No additional model architecture, dataset, training framework, or evaluation metric is introduced by the current codebase.
 
@@ -35,6 +36,7 @@ UNITRAN/
 │   ├── run_kmeans_coco_dinov2_patch.sh
 │   ├── run_visualize_cluster_topk_patches.sh
 │   ├── run_match_kmeans_centroids.sh
+│   ├── run_query_image_patch_clusters.sh
 │   ├── run_kmeans_caption_embeddings.sh
 │   └── run_visualize_vision_caption_centroids_2d.sh
 ├── tools/
@@ -45,6 +47,7 @@ UNITRAN/
 │   ├── cluster_coco_dinov2_streaming.py
 │   ├── visualize_cluster_topk_patches.py
 │   ├── match_kmeans_centroids.py
+│   ├── query_image_patch_clusters.py
 │   ├── cluster_caption_embeddings.py
 │   └── query_coco_captions.py
 └── unitran/
@@ -63,6 +66,7 @@ UNITRAN/
 - `tools/cluster_coco_dinov2_streaming.py`: runs streaming KMeans over patch-token shards.
 - `tools/visualize_cluster_topk_patches.py`: visualizes top-k patches for selected clusters.
 - `tools/match_kmeans_centroids.py`: matches high-K centroids to low-K centroids by cosine similarity.
+- `tools/query_image_patch_clusters.py`: queries the patch-token cluster-id grid for one image.
 - `tools/cluster_caption_embeddings.py`: clusters existing caption/text embeddings with KMeans.
 - `tools/query_coco_captions.py`: queries MS COCO caption annotations by image file name.
 - `unitran/clustering/faiss_kmeans.py`: retained FAISS KMeans helper; not used by the default scripts.
@@ -205,6 +209,35 @@ image_id: 9
 num_captions: 5
 1. ...
 ```
+
+## Workflow 1.6: query one image's patch-token cluster ids
+
+After KMeans assignment has been saved for one or more K values, query which cluster center each patch token of one image belongs to:
+
+```bash
+python tools/query_image_patch_clusters.py \
+  --feature_dir feature/coco2014_dinov2_vitb14_448 \
+  --image_name COCO_train2014_000000000009.jpg \
+  --ks 512,1024,2048,4096
+```
+
+Use `--ks all` to query every available `assignment/patch_cluster_ids_k*.npy` file. The script writes one folder per K under:
+
+```text
+feature/coco2014_dinov2_vitb14_448/query_image_patch_clusters/<image_stem>/
+```
+
+Important outputs for each K:
+
+```text
+k512/
+├── patch_clusters_grid_k512.npy    # [grid_h, grid_w] cluster id map
+├── patch_clusters_grid_k512.csv    # human-readable grid
+├── patch_clusters_flat_k512.jsonl  # patch_index/row/col -> cluster_id
+└── patch_clusters_summary_k512.json
+```
+
+The summary JSON also reports how many patches of this image fall into each cluster. If `patch_cluster_dist_k*.npy` exists, it includes saved nearest distance and cosine-similarity statistics.
 
 ## Workflow 2: stream KMeans over patch tokens
 
@@ -457,6 +490,7 @@ python -m py_compile \
   tools/extract_coco_dinov2_patch.py \
   tools/cluster_coco_dinov2_streaming.py \
   tools/cluster_caption_embeddings.py \
+  tools/query_image_patch_clusters.py \
   tools/visualize_cluster_topk_patches.py \
   unitran/clustering/faiss_kmeans.py
 
@@ -466,6 +500,7 @@ python tools/visualize_embeddings_2d.py --help
 python tools/extract_coco_dinov2_patch.py --help
 python tools/cluster_coco_dinov2_streaming.py --help
 python tools/cluster_caption_embeddings.py --help
+python tools/query_image_patch_clusters.py --help
 python tools/visualize_cluster_topk_patches.py --help
 ```
 
