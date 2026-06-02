@@ -16,6 +16,7 @@ The repository currently supports the following workflows:
 6. Visualize top-k patch tokens for selected KMeans clusters and save patch/attention collages.
 7. Match high-K KMeans centroids to low-K centroids for cross-granularity inspection.
 8. Run KMeans over existing caption/text embeddings and visualize vision/caption cluster centroids in one 2D space.
+9. Query MS COCO captions by image file name.
 
 No additional model architecture, dataset, training framework, or evaluation metric is introduced by the current codebase.
 
@@ -44,7 +45,8 @@ UNITRAN/
 │   ├── cluster_coco_dinov2_streaming.py
 │   ├── visualize_cluster_topk_patches.py
 │   ├── match_kmeans_centroids.py
-│   └── cluster_caption_embeddings.py
+│   ├── cluster_caption_embeddings.py
+│   └── query_coco_captions.py
 └── unitran/
     ├── __init__.py
     └── clustering/
@@ -62,6 +64,7 @@ UNITRAN/
 - `tools/visualize_cluster_topk_patches.py`: visualizes top-k patches for selected clusters.
 - `tools/match_kmeans_centroids.py`: matches high-K centroids to low-K centroids by cosine similarity.
 - `tools/cluster_caption_embeddings.py`: clusters existing caption/text embeddings with KMeans.
+- `tools/query_coco_captions.py`: queries MS COCO caption annotations by image file name.
 - `unitran/clustering/faiss_kmeans.py`: retained FAISS KMeans helper; not used by the default scripts.
 - `scripts/*.sh`: reproducible shell launchers for the current COCO patch-token workflow.
 - `docs/repository_refine_audit.md`: audit and structure-refine notes.
@@ -182,6 +185,26 @@ feature/coco2014_dinov2_vitb14_448/
 ```
 
 If `--save_image_mean_pt` is set, the script can also save image-level mean patch features for UNITRAN-style embedding experiments.
+
+## Workflow 1.5: query COCO captions by image name
+
+Query captions directly from `coco/annotations/captions_train2014.json`:
+
+```bash
+python tools/query_coco_captions.py \
+  --coco_root ./coco \
+  --split train2014 \
+  --image_name COCO_train2014_000000000009.jpg
+```
+
+Output format:
+
+```text
+image_name: COCO_train2014_000000000009.jpg
+image_id: 9
+num_captions: 5
+1. ...
+```
 
 ## Workflow 2: stream KMeans over patch tokens
 
