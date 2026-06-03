@@ -230,13 +230,38 @@ def collate_fn(batch: List[Dict[str, Any]]) -> Dict[str, Any]:
 
 
 def load_dinov2_model(model_name: str, device: torch.device) -> torch.nn.Module:
+    hub_dir = Path(torch.hub.get_dir())
+    repo_candidates = []
+    env_repo = os.environ.get("DINOV2_REPO")
+    if env_repo:
+        repo_candidates.append(Path(env_repo))
+    repo_candidates.extend([
+        hub_dir / "facebookresearch_dinov2_main",
+        hub_dir / "facebookresearch_dinov2_master",
+    ])
+
+    for repo_dir in repo_candidates:
+        if (repo_dir / "hubconf.py").is_file():
+            try:
+                model = torch.hub.load(str(repo_dir), model_name, source="local")
+            except Exception as e:
+                raise RuntimeError(
+                    f"Failed to load DINOv2 from local repo: {repo_dir}. "
+                    f"Original error: {repr(e)}"
+                ) from e
+            model.eval().to(device)
+            return model
+
     try:
-        model = torch.hub.load("facebookresearch/dinov2", model_name)
+        model = torch.hub.load("facebookresearch/dinov2:main", model_name, trust_repo=True, skip_validation=True)
+    except TypeError:
+        model = torch.hub.load("facebookresearch/dinov2:main", model_name)
     except Exception as e:
         raise RuntimeError(
             "Failed to load DINOv2 via torch.hub. If the server has no internet, "
-            "pre-download facebookresearch/dinov2 or set TORCH_HOME to a cache containing the model. "
-            f"Original error: {repr(e)}"
+            "set DINOV2_REPO to a local facebookresearch/dinov2 repo, or set TORCH_HOME "
+            "to a cache containing hub/facebookresearch_dinov2_main and checkpoints. "
+            f"torch.hub.get_dir()={torch.hub.get_dir()}. Original error: {repr(e)}"
         ) from e
     model.eval().to(device)
     return model
