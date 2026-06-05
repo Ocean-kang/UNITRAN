@@ -1,166 +1,129 @@
 # UNITRAN
 
-UNITRAN is a lightweight research codebase for unpaired translation/alignment between vision and text embedding spaces. The current repository also contains the COCO DINOv2 patch-token extraction, streaming patch-token clustering, and cluster top-k visualization utilities used in the current experiments.
+UNITRAN is a lightweight research codebase for studying unpaired translation and distribution alignment between DINOv2 vision features and text embeddings.
 
-This repository is intentionally kept small: it uses plain Python entry scripts, shell launchers, and explicit command-line arguments instead of a heavy experiment framework.
+The current repository keeps the workflow explicit and simple: `tools/` contains command-line entrypoints, `unitran/` contains reusable implementations, `scripts/` contains runnable shell examples, and `third_party/` stores vendored external code.
 
-## Current supported functionality
+## What this repository does
 
-The repository currently supports the following workflows:
+The main experimental flow is:
 
-1. Train a UNITRAN-style orthogonal mapping `W` from vision embeddings to text embeddings using unpaired training splits and paired validation.
-2. Compute distribution-level metrics between vision and text embeddings.
-3. Visualize text/vision embeddings in 2D with PCA or t-SNE, optionally before and after applying a learned `W`.
-4. Extract MS COCO 2014 DINOv2 patch tokens into sharded memory-mapped files.
-5. Run streaming full-batch KMeans over extracted patch tokens.
-6. Visualize top-k patch tokens for selected KMeans clusters and save patch/attention collages.
-7. Match high-K KMeans centroids to low-K centroids for cross-granularity inspection.
-8. Run KMeans over existing caption/text embeddings and visualize vision/caption cluster centroids in one 2D space.
-9. Query MS COCO captions by image file name.
-10. Query which KMeans cluster each patch token of one image belongs to.
+```text
+COCO images
+  -> extract DINOv2 patch tokens
+  -> cluster patch tokens globally or per image
+  -> inspect clusters with query and visualization tools
+  -> build / cluster text embeddings or text atoms
+  -> compare text and vision distributions
+  -> train a simple UNITRAN mapping between embedding spaces
+```
 
-No additional model architecture, dataset, training framework, or evaluation metric is introduced by the current codebase.
+Supported tasks:
+
+1. Extract DINOv2 patch tokens from MS COCO images.
+2. Run streaming KMeans over all patch tokens.
+3. Build per-image local patch centers and optionally cluster them globally.
+4. Query COCO captions or patch-token cluster assignments for one image.
+5. Visualize cluster top-k patches, cluster extremes, CLS attention, local-center attention, and 2D embedding projections.
+6. Cluster caption/text embeddings.
+7. Evaluate text/vision distribution density with original captions and LLM-expanded semantic atoms.
+8. Train a simple unpaired UNITRAN-style orthogonal mapping.
 
 ## Repository structure
 
 ```text
 UNITRAN/
 ├── README.md
-├── LICENSE
 ├── conda.yaml
-├── .gitignore
-├── docs/
-│   └── repository_refine_audit.md
 ├── scripts/
-│   ├── run_extract_coco_dinov2_patch_4gpu.sh
-│   ├── run_kmeans_coco_dinov2_patch.sh
-│   ├── run_visualize_cluster_topk_patches.sh
-│   ├── run_match_kmeans_centroids.sh
-│   ├── run_query_image_patch_clusters.sh
-│   ├── run_kmeans_caption_embeddings.sh
-│   └── run_visualize_vision_caption_centroids_2d.sh
+│   ├── extract/
+│   ├── cluster/
+│   ├── query/
+│   ├── visualize/
+│   └── evaluate/
 ├── tools/
-│   ├── train_unitran.py
-│   ├── evaluate_distribution.py
-│   ├── visualize_embeddings_2d.py
-│   ├── extract_coco_dinov2_patch.py
-│   ├── cluster_coco_dinov2_streaming.py
-│   ├── visualize_cluster_topk_patches.py
-│   ├── match_kmeans_centroids.py
-│   ├── query_image_patch_clusters.py
-│   ├── cluster_caption_embeddings.py
-│   └── query_coco_captions.py
-└── unitran/
-    ├── __init__.py
-    └── clustering/
-        ├── __init__.py
-        └── faiss_kmeans.py
+│   ├── extract.py
+│   ├── cluster.py
+│   ├── query.py
+│   ├── visualize.py
+│   ├── evaluate.py
+│   ├── generate_text_atoms.py
+│   └── train_unitran.py
+├── unitran/
+│   ├── datasets/
+│   ├── features/
+│   ├── clustering/
+│   ├── visualization/
+│   ├── evaluation/
+│   ├── embeddings/
+│   ├── training/
+│   └── utils/
+└── third_party/
+    └── llama/
 ```
 
-### Main files
+The preferred entrypoints are grouped by task:
 
-- `tools/train_unitran.py`: trains the vision-to-text orthogonal mapping `W`.
-- `tools/evaluate.py distribution`: computes distribution metrics between two embedding sets.
-- `tools/visualize.py embeddings2d`: visualizes embedding spaces or `.npy` centroid arrays with PCA or t-SNE.
-- `tools/extract.py`: extracts DINOv2 patch tokens from COCO images.
-- `tools/cluster.py patch-global`: runs streaming KMeans over patch-token shards.
-- `tools/visualize.py cluster-topk`: visualizes top-k patches for selected clusters.
-- `tools/cluster.py match-centroids`: matches high-K centroids to low-K centroids by cosine similarity.
-- `tools/query.py image-clusters`: queries the patch-token cluster-id grid for one image.
-- `tools/cluster.py caption`: clusters existing caption/text embeddings with KMeans.
-- `tools/query.py coco-captions`: queries MS COCO caption annotations by image file name.
-- `unitran/clustering/faiss_kmeans.py`: retained FAISS KMeans helper; not used by the default scripts.
-- `scripts/*.sh`: reproducible shell launchers for the current COCO patch-token workflow.
-- `docs/repository_refine_audit.md`: audit and structure-refine notes.
+```bash
+python tools/extract.py --help
+python tools/cluster.py <patch-global|patch-local|caption|match-centroids> --help
+python tools/query.py <coco-captions|image-clusters> --help
+python tools/visualize.py <cluster-topk|cluster-extremes|image-cls-attn|image-local-centers|embeddings2d> --help
+python tools/evaluate.py <distribution|text-density> --help
+python tools/generate_text_atoms.py --help
+python tools/train_unitran.py --help
+```
 
 ## Environment
 
-Recommended environment:
-
-- Python 3.10
-- PyTorch with CUDA support
-- NumPy
-- SciPy
-- scikit-learn
-- Matplotlib
-- tqdm
-- Pillow
-
-Create the conda environment from the repository root:
+Create the environment from the repository root:
 
 ```bash
 conda env create -f conda.yaml
 conda activate unitran
 ```
 
-Check the environment:
+The main dependencies are Python 3.10, PyTorch, NumPy, SciPy, scikit-learn, Matplotlib, tqdm, and Pillow. DINOv2 is loaded through `torch.hub`, so the model must be downloadable or already cached on the server.
 
-```bash
-python - <<'PY'
-import torch
-import numpy as np
-import scipy
-import sklearn
-import matplotlib
-import tqdm
-from PIL import Image
+## Data layout
 
-print('torch:', torch.__version__)
-print('cuda available:', torch.cuda.is_available())
-if torch.cuda.is_available():
-    print('cuda runtime:', torch.version.cuda)
-    print('gpu:', torch.cuda.get_device_name(0))
-PY
-```
-
-## Data preparation
-
-### COCO patch-token workflow
-
-The extraction script expects the COCO 2014 directory by default under `./coco`:
+For the COCO patch-token workflow, the default layout is:
 
 ```text
 coco/
 ├── train2014/
-│   ├── COCO_train2014_000000000009.jpg
-│   └── ...
+│   └── COCO_train2014_*.jpg
 └── annotations/
-    └── captions_train2014.json   # optional but recommended
+    └── captions_train2014.json
 ```
 
-The generated feature directory is ignored by git and defaults to:
+The default feature directory is:
 
 ```text
 feature/coco2014_dinov2_vitb14_448/
 ```
 
-### UNITRAN embedding workflow
-
-`tools/train_unitran.py` currently expects `--embedding_dir` to contain these two files:
+After extraction, it contains:
 
 ```text
-talk2dino_avg_self_attn_out_80000.pt
-val_paired_8192.pt
+feature/coco2014_dinov2_vitb14_448/
+├── images.jsonl
+├── meta.json
+├── patch_tokens_shape.json
+└── patch_tokens/
+    ├── shard_000_fp16.mmap
+    └── shard_000.meta.json
 ```
 
-Each file should contain:
+## 1. Extract DINOv2 patch tokens
 
-```text
-vision_feats
-text_feats
-```
-
-The file names are still hard-coded in the current training script. This is preserved to avoid changing behavior.
-
-## Workflow 1: extract COCO DINOv2 patch tokens
-
-Run the provided 4-GPU launcher from the repository root:
+Run the multi-GPU launcher:
 
 ```bash
-bash scripts/run_extract_coco_dinov2_patch_4gpu.sh
+bash scripts/extract/run_extract_coco_dinov2_patch_4gpu.sh
 ```
 
-Equivalent single-command form:
+Single-process example:
 
 ```bash
 CUDA_VISIBLE_DEVICES=0 python tools/extract.py \
@@ -176,75 +139,14 @@ CUDA_VISIBLE_DEVICES=0 python tools/extract.py \
   --write_global_meta
 ```
 
-Important outputs:
+Use `--save_image_mean_pt` if you also want image-level mean patch features for embedding experiments.
 
-```text
-feature/coco2014_dinov2_vitb14_448/
-├── images.jsonl
-├── meta.json
-├── patch_tokens_shape.json
-└── patch_tokens/
-    ├── shard_000_fp16.mmap
-    └── shard_000.meta.json
-```
+## 2. Cluster vision patch tokens
 
-If `--save_image_mean_pt` is set, the script can also save image-level mean patch features for UNITRAN-style embedding experiments.
-
-## Workflow 1.5: query COCO captions by image name
-
-Query captions directly from `coco/annotations/captions_train2014.json`:
+### Global patch-token KMeans
 
 ```bash
-python tools/query.py coco-captions \
-  --coco_root ./coco \
-  --split train2014 \
-  --image_name COCO_train2014_000000000009.jpg
-```
-
-Output format:
-
-```text
-image_name: COCO_train2014_000000000009.jpg
-image_id: 9
-num_captions: 5
-1. ...
-```
-
-## Workflow 1.6: query one image's patch-token cluster ids
-
-After KMeans assignment has been saved for one or more K values, query which cluster center each patch token of one image belongs to:
-
-```bash
-python tools/query.py image-clusters \
-  --feature_dir feature/coco2014_dinov2_vitb14_448 \
-  --image_name COCO_train2014_000000000009.jpg \
-  --ks 512,1024,2048,4096
-```
-
-Use `--ks all` to query every available `assignment/patch_cluster_ids_k*.npy` file. The script writes one folder per K under:
-
-```text
-feature/coco2014_dinov2_vitb14_448/query_image_patch_clusters/<image_stem>/
-```
-
-Important outputs for each K:
-
-```text
-k512/
-├── patch_clusters_grid_k512.npy    # [grid_h, grid_w] cluster id map
-├── patch_clusters_grid_k512.csv    # human-readable grid
-├── patch_clusters_flat_k512.jsonl  # patch_index/row/col -> cluster_id
-└── patch_clusters_summary_k512.json
-```
-
-The summary JSON also reports how many patches of this image fall into each cluster. If `patch_cluster_dist_k*.npy` exists, it includes saved nearest distance and cosine-similarity statistics.
-
-## Workflow 2: stream KMeans over patch tokens
-
-Run the launcher:
-
-```bash
-bash scripts/run_kmeans_coco_dinov2_patch.sh
+bash scripts/cluster/run_kmeans_coco_dinov2_patch.sh
 ```
 
 Equivalent command:
@@ -279,17 +181,45 @@ feature/coco2014_dinov2_vitb14_448/
     └── patch_cluster_dist_k512_fp16.npy
 ```
 
-Use `--chunk_images` to control the number of images streamed per chunk. Larger values usually improve throughput but increase GPU memory use.
+Increase `--chunk_images` for better throughput if GPU memory allows. Use smaller `--k`, fewer `--num_iters`, and `--max_images` for debugging.
 
-## Workflow 3: visualize cluster top-k patches
-
-Run the launcher:
+### Per-image local centers
 
 ```bash
-bash scripts/run_visualize_cluster_topk_patches.sh
+bash scripts/cluster/run_local_patch_center_kmeans_coco_dinov2.sh
 ```
 
-Equivalent command for one cluster:
+This compresses each image's raw patch tokens into `LOCAL_K` local centers, then optionally runs global KMeans on the local-center feature directory.
+
+## 3. Query images and clusters
+
+Query COCO captions:
+
+```bash
+python tools/query.py coco-captions \
+  --coco_root ./coco \
+  --split train2014 \
+  --image_name COCO_train2014_000000000009.jpg
+```
+
+Query the cluster-id grid for one image:
+
+```bash
+python tools/query.py image-clusters \
+  --feature_dir feature/coco2014_dinov2_vitb14_448 \
+  --image_name COCO_train2014_000000000009.jpg \
+  --ks all
+```
+
+The image-cluster query writes outputs under:
+
+```text
+feature/coco2014_dinov2_vitb14_448/query_image_patch_clusters/<image_stem>/
+```
+
+## 4. Visualize vision clusters
+
+Visualize top-k patches for selected global clusters:
 
 ```bash
 python tools/visualize.py cluster-topk \
@@ -303,62 +233,40 @@ python tools/visualize.py cluster-topk \
   --collage_cols 5
 ```
 
-The script expects the corresponding centroid and assignment files under:
-
-```text
-feature/coco2014_dinov2_vitb14_448/kmeans/
-feature/coco2014_dinov2_vitb14_448/assignment/
-```
-
-For example, if clustering was run with `--k 512`, visualization should also use `--k 512`.
-
-## Workflow 4: match high-K centroids to low-K centroids
-
-After running KMeans for multiple K values, for example `512` and `4096`, run:
+Visualize the most similar and least similar assigned patches within a cluster:
 
 ```bash
-bash scripts/run_match_kmeans_centroids.sh
-```
-
-Equivalent command:
-
-```bash
-python tools/cluster.py match-centroids \
+python tools/visualize.py cluster-extremes \
   --feature_dir feature/coco2014_dinov2_vitb14_448 \
-  --small_k 512 \
-  --large_k 4096 \
-  --overwrite
+  --k 1024 \
+  --topk 50 \
+  --clusters 0 \
+  --metric cosine
 ```
 
-Important outputs:
-
-```text
-feature/coco2014_dinov2_vitb14_448/centroid_match/k4096_to_k512/
-├── matches.jsonl
-├── matches.csv
-├── matched_pair_indices.npy
-├── matched_large_indices.npy
-└── config.json
-```
-
-Each row maps one low-K centroid index to one high-K centroid index. The script uses one-to-one Hungarian matching, so high-K indices are unique and total cosine similarity across all low-K centroids is maximized.
-
-## Workflow 5: cluster caption/text embeddings
-
-This workflow assumes caption/text embeddings already exist as either:
-
-```text
-.pt dict containing text_feats
-.npy array with shape [num_captions, dim]
-```
-
-Run the launcher after editing `INPUT_PT` if needed:
+Visualize DINOv2 CLS attention for one image:
 
 ```bash
-bash scripts/run_kmeans_caption_embeddings.sh
+python tools/visualize.py image-cls-attn \
+  --feature_dir feature/coco2014_dinov2_vitb14_448 \
+  --image_name COCO_train2014_000000000009.jpg \
+  --device cuda
 ```
 
-Equivalent command:
+Visualize per-image local-center attention maps:
+
+```bash
+python tools/visualize.py image-local-centers \
+  --raw_feature_dir feature/coco2014_dinov2_vitb14_448 \
+  --local_feature_dir feature/coco2014_dinov2_vitb14_448_local_k20 \
+  --image_name COCO_train2014_000000000009.jpg \
+  --local_centers all \
+  --metric cosine
+```
+
+## 5. Cluster and visualize text embeddings
+
+Cluster existing text embeddings:
 
 ```bash
 python tools/cluster.py caption \
@@ -370,28 +278,7 @@ python tools/cluster.py caption \
   --overwrite
 ```
 
-Important outputs:
-
-```text
-feature/caption_kmeans/
-├── centroids_k512_fp32.npy
-├── centroids_k512_fp16.npy
-├── cluster_ids_k512_int32.npy
-├── cluster_counts_k512.npy
-└── config_k512.json
-```
-
-`--preprocess l2` is the default because cosine-style embedding comparison is usually done after L2 normalization. The saved centroids can be passed directly to `tools/visualize.py embeddings2d`.
-
-## Workflow 6: visualize vision/caption cluster centroids
-
-After vision KMeans and caption KMeans both finish, run:
-
-```bash
-bash scripts/run_visualize_vision_caption_centroids_2d.sh
-```
-
-Equivalent command:
+Visualize vision and text centroids in one 2D space:
 
 ```bash
 python tools/visualize.py embeddings2d \
@@ -400,13 +287,81 @@ python tools/visualize.py embeddings2d \
   --method pca \
   --preprocess l2 \
   --out_dir outputs/vis \
-  --prefix vision_caption_centroids_k512 \
-  --title "Vision/caption KMeans centroids"
+  --prefix vision_caption_centroids_k512
 ```
 
-If the vision and caption centroid dimensions differ, `tools/visualize.py embeddings2d` keeps the existing zero-padding behavior before projection.
+If dimensions differ, the tool preserves the existing zero-padding behavior before projection.
 
-## Workflow 7: train UNITRAN mapping
+## 6. Text-density evaluation with semantic atoms
+
+The text-density pipeline tests whether expanded text atoms better match the DINOv2 patch-token distribution than original COCO captions.
+
+Run the launcher:
+
+```bash
+bash scripts/evaluate/run_text_density_eval_1000.sh
+```
+
+Or run the three stages manually:
+
+```bash
+python tools/evaluate.py text-density sample \
+  --coco_root ./coco \
+  --split train2014 \
+  --feature_dir feature/coco2014_dinov2_vitb14_448 \
+  --num_images 1000 \
+  --out_jsonl outputs/text_density_eval/sample_1000.jsonl
+```
+
+```bash
+python tools/generate_text_atoms.py \
+  --sample_jsonl outputs/text_density_eval/sample_1000.jsonl \
+  --out_jsonl outputs/text_density_eval/recaption_atoms_1000.jsonl \
+  --llama_root ./third_party \
+  --ckpt_dir /path/to/Meta-Llama-3-8B-Instruct \
+  --tokenizer_path /path/to/Meta-Llama-3-8B-Instruct/tokenizer.model \
+  --max_batch_size 4 \
+  --resume
+```
+
+```bash
+python tools/evaluate.py text-density features \
+  --sample_jsonl outputs/text_density_eval/sample_1000.jsonl \
+  --recaption_jsonl outputs/text_density_eval/recaption_atoms_1000.jsonl \
+  --feature_dir feature/coco2014_dinov2_vitb14_448 \
+  --text_model sentence-transformers/all-mpnet-base-v2 \
+  --patches_per_image 64 \
+  --device cuda \
+  --out_dir outputs/text_density_eval
+
+python tools/evaluate.py text-density report \
+  --out_dir outputs/text_density_eval \
+  --max_points 20000
+```
+
+Main outputs:
+
+```text
+outputs/text_density_eval/
+├── sample_1000.jsonl
+├── recaption_atoms_1000.jsonl
+├── density_eval_original.pt
+├── density_eval_expanded.pt
+└── density_report.json
+```
+
+## 7. Train UNITRAN mapping
+
+`tools/train_unitran.py` expects the embedding directory to contain:
+
+```text
+talk2dino_avg_self_attn_out_80000.pt
+val_paired_8192.pt
+```
+
+Each file should contain `vision_feats` and `text_feats`.
+
+Run:
 
 ```bash
 CUDA_VISIBLE_DEVICES=0 python tools/train_unitran.py \
@@ -425,9 +380,9 @@ outputs/unitran/
 └── result_dinov2_to_text_seed0.json
 ```
 
-## Workflow 8: compute distribution metrics
+## 8. General distribution metrics
 
-If one `.pt` file contains both `vision_feats` and `text_feats`:
+For one file containing both `vision_feats` and `text_feats`:
 
 ```bash
 python tools/evaluate.py distribution \
@@ -439,7 +394,7 @@ python tools/evaluate.py distribution \
   --out_json outputs/distribution_metric.json
 ```
 
-If vision/text features are stored in two files:
+For two separate files:
 
 ```bash
 python tools/evaluate.py distribution \
@@ -451,103 +406,13 @@ python tools/evaluate.py distribution \
   --out_json outputs/distribution_metric.json
 ```
 
-## Workflow 9: visualize embedding spaces
-
-Before applying `W`:
-
-```bash
-python tools/visualize.py embeddings2d \
-  --input_pt /path/to/features.pt \
-  --vision_key vision_feats \
-  --text_key text_feats \
-  --method pca \
-  --preprocess unitran \
-  --out_dir outputs/vis
-```
-
-Before and after applying a learned `W`:
-
-```bash
-python tools/visualize.py embeddings2d \
-  --input_pt /path/to/features.pt \
-  --vision_key vision_feats \
-  --text_key text_feats \
-  --W outputs/unitran/W_dinov2_to_text_seed0.pt \
-  --method pca \
-  --preprocess unitran \
-  --out_dir outputs/vis
-```
-
 ## Smoke checks
 
-Run these commands from the repository root after installing dependencies:
+Run these checks after installing dependencies:
 
 ```bash
-python -m py_compile \
-  tools/train_unitran.py \
-  tools/evaluate.py distribution \
-  tools/visualize.py embeddings2d \
-  tools/extract.py \
-  tools/cluster.py patch-global \
-  tools/cluster.py caption \
-  tools/query.py image-clusters \
-  tools/visualize.py cluster-topk \
-  unitran/clustering/faiss_kmeans.py
+python -m compileall -q tools unitran third_party
 
-python tools/train_unitran.py --help
-python tools/evaluate.py distribution --help
-python tools/visualize.py embeddings2d --help
-python tools/extract.py --help
-python tools/cluster.py patch-global --help
-python tools/cluster.py caption --help
-python tools/query.py image-clusters --help
-python tools/visualize.py cluster-topk --help
-```
-
-Full workflow checks require the relevant data files and GPU environment.
-
-## Common issues
-
-### `tools/train_unitran.py` cannot find embedding files
-
-The current training script expects fixed file names inside `--embedding_dir`:
-
-```text
-talk2dino_avg_self_attn_out_80000.pt
-val_paired_8192.pt
-```
-
-Rename or symlink your feature files accordingly, or modify the script explicitly if you want configurable train/validation file names.
-
-### Visualization cannot find `centroids_k*.npy` or assignment files
-
-Make sure `--k` in `tools/visualize.py cluster-topk` matches the `--k` used during KMeans clustering. For example, KMeans with `--k 512` produces `centroids_k512_fp32.npy`, not `centroids_k1024_fp32.npy`.
-
-### KMeans is slow
-
-The streaming KMeans script processes every patch token each iteration. Increase `--chunk_images` if GPU memory allows, reduce `--max_images` for debugging, and run quick sanity checks with smaller `--k` and fewer `--num_iters` before full runs.
-
-### DINOv2 model loading fails
-
-`tools/extract.py` uses `torch.hub` to load DINOv2. Make sure the server can access the model source or has the required model cached.
-
-## Citation
-
-TODO: add paper citation when available.
-
-## Acknowledgement
-
-TODO: add acknowledgements for upstream codebases, pretrained models, or datasets as appropriate.
-
-## License
-
-See `LICENSE`.
-
-## Refactored tool entrypoints
-
-The original one-file-per-task scripts under `tools/` are still available as compatibility wrappers, but new work should prefer the grouped CLI entrypoints:
-
-```bash
 python tools/extract.py --help
 python tools/cluster.py patch-global --help
 python tools/cluster.py patch-local --help
@@ -564,6 +429,30 @@ python tools/evaluate.py distribution --help
 python tools/evaluate.py text-density sample --help
 python tools/evaluate.py text-density features --help
 python tools/evaluate.py text-density report --help
+python tools/generate_text_atoms.py --help
+python tools/train_unitran.py --help
 ```
 
-Reusable implementations now live under `unitran/`, and vendored Llama code has been moved from `tools/llama/` to `third_party/llama/`. See `docs/refactor_summary.md` and `docs/tool_refactor_plan.md` for details.
+Full extraction, clustering, and visualization checks require COCO files, DINOv2 weights, feature files, and a CUDA environment.
+
+## Common issues
+
+### Script cannot find `tools/...`
+
+Run shell launchers from the repository root, or use the launchers under `scripts/<workflow>/`, which change to the repository root automatically.
+
+### Visualization cannot find centroid or assignment files
+
+Make sure `--k` matches the KMeans run. For example, `--k 512` produces `centroids_k512_fp32.npy`, not `centroids_k1024_fp32.npy`.
+
+### KMeans is slow
+
+Streaming KMeans scans all patch tokens every iteration. Increase `--chunk_images` if memory allows, reduce `--max_images` for debugging, and test with smaller `--k` before full runs.
+
+### DINOv2 model loading fails
+
+Make sure the server can access `torch.hub` or already has the DINOv2 model cached.
+
+## License
+
+See `LICENSE`.
