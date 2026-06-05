@@ -30,6 +30,7 @@ import json
 import math
 import os
 import random
+import re
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -446,8 +447,9 @@ def run_assignment(args: argparse.Namespace, shards: Sequence[ShardInfo], centro
     dim = shards[0].dim
     label_dtype = np.uint16 if args.k <= 65535 else np.uint32
 
-    ids_path = assignment_dir / f"patch_cluster_ids_k{args.k}_{np.dtype(label_dtype).name}.npy"
-    dist_path = assignment_dir / f"patch_cluster_dist_k{args.k}_fp16.npy"
+    tag = f"_{args.assignment_tag}" if args.assignment_tag else ""
+    ids_path = assignment_dir / f"patch_cluster_ids_k{args.k}{tag}_{np.dtype(label_dtype).name}.npy"
+    dist_path = assignment_dir / f"patch_cluster_dist_k{args.k}{tag}_fp16.npy"
 
     if ids_path.exists() and not args.overwrite:
         raise FileExistsError(f"{ids_path} exists. Use --overwrite to rewrite assignment.")
@@ -500,10 +502,11 @@ def run_assignment(args: argparse.Namespace, shards: Sequence[ShardInfo], centro
         "shape": [total_images, num_patches],
         "id_dtype": np.dtype(label_dtype).name,
         "distance_dtype": "float16" if args.save_dist else None,
+        "assignment_tag": args.assignment_tag,
         "chunk_images": args.chunk_images,
         "elapsed_sec": round(time.time() - t0, 3),
     }
-    json_dump(assignment_dir / f"config_assignment_k{args.k}.json", config)
+    json_dump(assignment_dir / f"config_assignment_k{args.k}{tag}.json", config)
     print(f"[done] assignment vectors={total_vectors:,}, elapsed={config['elapsed_sec']}s")
     print(f"[save] {ids_path}")
     if args.save_dist:
@@ -527,8 +530,12 @@ def main() -> None:
     parser.add_argument("--assign", action="store_true", help="Run full assignment after KMeans training.")
     parser.add_argument("--only_assign", action="store_true", help="Skip training and only assign using --init_centroids or existing centroids file.")
     parser.add_argument("--save_dist", action="store_true", help="Also save nearest distance as fp16 .npy.")
+    parser.add_argument("--assignment_tag", type=str, default="", help="Optional suffix for assignment filenames, e.g. local_k20.")
     parser.add_argument("--overwrite", action="store_true")
     args = parser.parse_args()
+
+    if args.assignment_tag and not re.match(r"^[A-Za-z0-9_.-]+$", args.assignment_tag):
+        raise ValueError("--assignment_tag may only contain letters, numbers, underscore, dash, or dot")
 
     set_seed(args.seed)
     feature_dir = Path(args.feature_dir)

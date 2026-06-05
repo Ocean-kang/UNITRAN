@@ -32,6 +32,8 @@ CUDA_VISIBLE_DEVICES=0 python tools/cluster_coco_dinov2_streaming.py \
   --chunk_images 512 \
   --compute_dtype float16 \
   --device cuda:0 \
+  --assign \
+  --save_dist \
   --overwrite
 
 # Optional Stage 3: assign the original 1024 raw patch tokens to the low-noise global centroids.
@@ -46,4 +48,5 @@ CUDA_VISIBLE_DEVICES=0 python tools/cluster_coco_dinov2_streaming.py \
 #   --only_assign \
 #   --init_centroids "${LOCAL_FEATURE_DIR}/kmeans/centroids_k${GLOBAL_K}_fp32.npy" \
 #   --save_dist \
+#   --assignment_tag "local_k${LOCAL_K}" \
 #   --overwrite
