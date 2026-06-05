@@ -7,7 +7,7 @@ if str(ROOT) not in sys.path:
 
 def main() -> None:
     if len(sys.argv) < 2 or sys.argv[1] in {"-h", "--help"}:
-        print("Usage: python tools/evaluate.py <command> [args]\n\nCommands:\n  distribution\n  text-density sample|features|report")
+        print("Usage: python tools/evaluate.py <command> [args]\n\nCommands:\n  distribution\n  text-density sample|features|report\n  local-density sample|features|report")
         return
     cmd = sys.argv[1]
     if cmd == "distribution":
@@ -22,8 +22,13 @@ def main() -> None:
             rest = ["--stage", stage, *rest[1:]]
         sys.argv = [sys.argv[0] + " text-density", *rest]
         m()
+    elif cmd == "local-density":
+        from unitran.evaluation.local_density import main as m
+        rest = sys.argv[2:]
+        sys.argv = [sys.argv[0] + " local-density", *rest]
+        m()
     else:
-        raise SystemExit(f"Unknown command: {cmd}. Available commands: distribution, text-density")
+        raise SystemExit(f"Unknown command: {cmd}. Available commands: distribution, text-density, local-density")
 
 if __name__ == "__main__":
     main()

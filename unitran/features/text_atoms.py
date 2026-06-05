@@ -55,8 +55,9 @@ def existing_ids(path: Path) -> set[int]:
     return done
 
 
-def build_prompt(captions: List[str], max_atoms: int) -> str:
+def build_prompt(captions: List[str], max_atoms: int, num_atoms: int = 0) -> str:
     caps = "\n".join([f"{i+1}. {c}" for i, c in enumerate(captions)])
+    atom_rule = f"exactly {num_atoms}" if num_atoms > 0 else f"8 to {max_atoms}"
     return f"""You are rewriting MSCOCO image captions for a vision-language representation experiment.
 
 Original captions:
@@ -75,7 +76,7 @@ JSON schema:
 }}
 
 Constraints:
-- Number of atoms: 8 to {max_atoms}.
+- Number of atoms: {atom_rule}.
 - Each atom: 4 to 18 words.
 - No duplicate atoms.
 """
@@ -126,12 +127,15 @@ def main() -> None:
     parser.add_argument("--temperature", default=0.2, type=float)
     parser.add_argument("--top_p", default=0.9, type=float)
     parser.add_argument("--max_atoms", default=18, type=int)
+    parser.add_argument("--num_atoms", default=0, type=int, help="If >0, ask Llama3 to generate exactly this many atoms per image.")
     parser.add_argument("--resume", action="store_true")
     parser.add_argument("--limit", default=0, type=int)
     args = parser.parse_args()
 
     sys.path.insert(0, str(Path(args.llama_root).resolve()))
-    from llama import Llama  # type: ignore
+    llama_parent = Path(__file__).resolve().parents[2] / "third_party"
+    sys.path.insert(0, str(llama_parent))
+    from third_party.llama import Llama  # type: ignore
 
     rows = load_jsonl(Path(args.sample_jsonl))
     if args.limit and args.limit > 0:
@@ -161,7 +165,7 @@ def main() -> None:
         dialogs = [
             [
                 {"role": "system", "content": "You produce grounded JSON for image-caption rewriting."},
-                {"role": "user", "content": build_prompt(r["captions"], args.max_atoms)},
+                {"role": "user", "content": build_prompt(r["captions"], args.max_atoms, args.num_atoms)},
             ]
             for r in batch
         ]
@@ -181,7 +185,7 @@ def main() -> None:
         dialogs = [
             [
                 {"role": "system", "content": "You produce grounded JSON for image-caption rewriting."},
-                {"role": "user", "content": build_prompt(r["captions"], args.max_atoms)},
+                {"role": "user", "content": build_prompt(r["captions"], args.max_atoms, args.num_atoms)},
             ]
             for r in batch
         ]
