@@ -60,15 +60,15 @@ UNITRAN/
 ### Main files
 
 - `tools/train_unitran.py`: trains the vision-to-text orthogonal mapping `W`.
-- `tools/evaluate_distribution.py`: computes distribution metrics between two embedding sets.
-- `tools/visualize_embeddings_2d.py`: visualizes embedding spaces or `.npy` centroid arrays with PCA or t-SNE.
-- `tools/extract_coco_dinov2_patch.py`: extracts DINOv2 patch tokens from COCO images.
-- `tools/cluster_coco_dinov2_streaming.py`: runs streaming KMeans over patch-token shards.
-- `tools/visualize_cluster_topk_patches.py`: visualizes top-k patches for selected clusters.
-- `tools/match_kmeans_centroids.py`: matches high-K centroids to low-K centroids by cosine similarity.
-- `tools/query_image_patch_clusters.py`: queries the patch-token cluster-id grid for one image.
-- `tools/cluster_caption_embeddings.py`: clusters existing caption/text embeddings with KMeans.
-- `tools/query_coco_captions.py`: queries MS COCO caption annotations by image file name.
+- `tools/evaluate.py distribution`: computes distribution metrics between two embedding sets.
+- `tools/visualize.py embeddings2d`: visualizes embedding spaces or `.npy` centroid arrays with PCA or t-SNE.
+- `tools/extract.py`: extracts DINOv2 patch tokens from COCO images.
+- `tools/cluster.py patch-global`: runs streaming KMeans over patch-token shards.
+- `tools/visualize.py cluster-topk`: visualizes top-k patches for selected clusters.
+- `tools/cluster.py match-centroids`: matches high-K centroids to low-K centroids by cosine similarity.
+- `tools/query.py image-clusters`: queries the patch-token cluster-id grid for one image.
+- `tools/cluster.py caption`: clusters existing caption/text embeddings with KMeans.
+- `tools/query.py coco-captions`: queries MS COCO caption annotations by image file name.
 - `unitran/clustering/faiss_kmeans.py`: retained FAISS KMeans helper; not used by the default scripts.
 - `scripts/*.sh`: reproducible shell launchers for the current COCO patch-token workflow.
 - `docs/repository_refine_audit.md`: audit and structure-refine notes.
@@ -163,7 +163,7 @@ bash scripts/run_extract_coco_dinov2_patch_4gpu.sh
 Equivalent single-command form:
 
 ```bash
-CUDA_VISIBLE_DEVICES=0 python tools/extract_coco_dinov2_patch.py \
+CUDA_VISIBLE_DEVICES=0 python tools/extract.py \
   --coco_root ./coco \
   --split train2014 \
   --out_dir feature/coco2014_dinov2_vitb14_448 \
@@ -195,7 +195,7 @@ If `--save_image_mean_pt` is set, the script can also save image-level mean patc
 Query captions directly from `coco/annotations/captions_train2014.json`:
 
 ```bash
-python tools/query_coco_captions.py \
+python tools/query.py coco-captions \
   --coco_root ./coco \
   --split train2014 \
   --image_name COCO_train2014_000000000009.jpg
@@ -215,7 +215,7 @@ num_captions: 5
 After KMeans assignment has been saved for one or more K values, query which cluster center each patch token of one image belongs to:
 
 ```bash
-python tools/query_image_patch_clusters.py \
+python tools/query.py image-clusters \
   --feature_dir feature/coco2014_dinov2_vitb14_448 \
   --image_name COCO_train2014_000000000009.jpg \
   --ks 512,1024,2048,4096
@@ -250,7 +250,7 @@ bash scripts/run_kmeans_coco_dinov2_patch.sh
 Equivalent command:
 
 ```bash
-CUDA_VISIBLE_DEVICES=0 python tools/cluster_coco_dinov2_streaming.py \
+CUDA_VISIBLE_DEVICES=0 python tools/cluster.py patch-global \
   --feature_dir feature/coco2014_dinov2_vitb14_448 \
   --k 512 \
   --num_iters 20 \
@@ -292,7 +292,7 @@ bash scripts/run_visualize_cluster_topk_patches.sh
 Equivalent command for one cluster:
 
 ```bash
-python tools/visualize_cluster_topk_patches.py \
+python tools/visualize.py cluster-topk \
   --feature_dir feature/coco2014_dinov2_vitb14_448 \
   --k 1024 \
   --topk 50 \
@@ -323,7 +323,7 @@ bash scripts/run_match_kmeans_centroids.sh
 Equivalent command:
 
 ```bash
-python tools/match_kmeans_centroids.py \
+python tools/cluster.py match-centroids \
   --feature_dir feature/coco2014_dinov2_vitb14_448 \
   --small_k 512 \
   --large_k 4096 \
@@ -361,7 +361,7 @@ bash scripts/run_kmeans_caption_embeddings.sh
 Equivalent command:
 
 ```bash
-python tools/cluster_caption_embeddings.py \
+python tools/cluster.py caption \
   --input_pt feature/text_embeddings.pt \
   --text_key text_feats \
   --k 512 \
@@ -381,7 +381,7 @@ feature/caption_kmeans/
 └── config_k512.json
 ```
 
-`--preprocess l2` is the default because cosine-style embedding comparison is usually done after L2 normalization. The saved centroids can be passed directly to `tools/visualize_embeddings_2d.py`.
+`--preprocess l2` is the default because cosine-style embedding comparison is usually done after L2 normalization. The saved centroids can be passed directly to `tools/visualize.py embeddings2d`.
 
 ## Workflow 6: visualize vision/caption cluster centroids
 
@@ -394,7 +394,7 @@ bash scripts/run_visualize_vision_caption_centroids_2d.sh
 Equivalent command:
 
 ```bash
-python tools/visualize_embeddings_2d.py \
+python tools/visualize.py embeddings2d \
   --vision_pt feature/coco2014_dinov2_vitb14_448/kmeans/centroids_k512_fp32.npy \
   --text_pt feature/caption_kmeans/centroids_k512_fp32.npy \
   --method pca \
@@ -404,7 +404,7 @@ python tools/visualize_embeddings_2d.py \
   --title "Vision/caption KMeans centroids"
 ```
 
-If the vision and caption centroid dimensions differ, `tools/visualize_embeddings_2d.py` keeps the existing zero-padding behavior before projection.
+If the vision and caption centroid dimensions differ, `tools/visualize.py embeddings2d` keeps the existing zero-padding behavior before projection.
 
 ## Workflow 7: train UNITRAN mapping
 
@@ -430,7 +430,7 @@ outputs/unitran/
 If one `.pt` file contains both `vision_feats` and `text_feats`:
 
 ```bash
-python tools/evaluate_distribution.py \
+python tools/evaluate.py distribution \
   --input_pt /path/to/features.pt \
   --vision_key vision_feats \
   --text_key text_feats \
@@ -442,7 +442,7 @@ python tools/evaluate_distribution.py \
 If vision/text features are stored in two files:
 
 ```bash
-python tools/evaluate_distribution.py \
+python tools/evaluate.py distribution \
   --vision_pt /path/to/vision.pt \
   --text_pt /path/to/text.pt \
   --vision_key vision_feats \
@@ -456,7 +456,7 @@ python tools/evaluate_distribution.py \
 Before applying `W`:
 
 ```bash
-python tools/visualize_embeddings_2d.py \
+python tools/visualize.py embeddings2d \
   --input_pt /path/to/features.pt \
   --vision_key vision_feats \
   --text_key text_feats \
@@ -468,7 +468,7 @@ python tools/visualize_embeddings_2d.py \
 Before and after applying a learned `W`:
 
 ```bash
-python tools/visualize_embeddings_2d.py \
+python tools/visualize.py embeddings2d \
   --input_pt /path/to/features.pt \
   --vision_key vision_feats \
   --text_key text_feats \
@@ -485,23 +485,23 @@ Run these commands from the repository root after installing dependencies:
 ```bash
 python -m py_compile \
   tools/train_unitran.py \
-  tools/evaluate_distribution.py \
-  tools/visualize_embeddings_2d.py \
-  tools/extract_coco_dinov2_patch.py \
-  tools/cluster_coco_dinov2_streaming.py \
-  tools/cluster_caption_embeddings.py \
-  tools/query_image_patch_clusters.py \
-  tools/visualize_cluster_topk_patches.py \
+  tools/evaluate.py distribution \
+  tools/visualize.py embeddings2d \
+  tools/extract.py \
+  tools/cluster.py patch-global \
+  tools/cluster.py caption \
+  tools/query.py image-clusters \
+  tools/visualize.py cluster-topk \
   unitran/clustering/faiss_kmeans.py
 
 python tools/train_unitran.py --help
-python tools/evaluate_distribution.py --help
-python tools/visualize_embeddings_2d.py --help
-python tools/extract_coco_dinov2_patch.py --help
-python tools/cluster_coco_dinov2_streaming.py --help
-python tools/cluster_caption_embeddings.py --help
-python tools/query_image_patch_clusters.py --help
-python tools/visualize_cluster_topk_patches.py --help
+python tools/evaluate.py distribution --help
+python tools/visualize.py embeddings2d --help
+python tools/extract.py --help
+python tools/cluster.py patch-global --help
+python tools/cluster.py caption --help
+python tools/query.py image-clusters --help
+python tools/visualize.py cluster-topk --help
 ```
 
 Full workflow checks require the relevant data files and GPU environment.
@@ -521,7 +521,7 @@ Rename or symlink your feature files accordingly, or modify the script explicitl
 
 ### Visualization cannot find `centroids_k*.npy` or assignment files
 
-Make sure `--k` in `tools/visualize_cluster_topk_patches.py` matches the `--k` used during KMeans clustering. For example, KMeans with `--k 512` produces `centroids_k512_fp32.npy`, not `centroids_k1024_fp32.npy`.
+Make sure `--k` in `tools/visualize.py cluster-topk` matches the `--k` used during KMeans clustering. For example, KMeans with `--k 512` produces `centroids_k512_fp32.npy`, not `centroids_k1024_fp32.npy`.
 
 ### KMeans is slow
 
@@ -529,7 +529,7 @@ The streaming KMeans script processes every patch token each iteration. Increase
 
 ### DINOv2 model loading fails
 
-`tools/extract_coco_dinov2_patch.py` uses `torch.hub` to load DINOv2. Make sure the server can access the model source or has the required model cached.
+`tools/extract.py` uses `torch.hub` to load DINOv2. Make sure the server can access the model source or has the required model cached.
 
 ## Citation
 
@@ -542,3 +542,28 @@ TODO: add acknowledgements for upstream codebases, pretrained models, or dataset
 ## License
 
 See `LICENSE`.
+
+## Refactored tool entrypoints
+
+The original one-file-per-task scripts under `tools/` are still available as compatibility wrappers, but new work should prefer the grouped CLI entrypoints:
+
+```bash
+python tools/extract.py --help
+python tools/cluster.py patch-global --help
+python tools/cluster.py patch-local --help
+python tools/cluster.py caption --help
+python tools/cluster.py match-centroids --help
+python tools/query.py coco-captions --help
+python tools/query.py image-clusters --help
+python tools/visualize.py cluster-topk --help
+python tools/visualize.py cluster-extremes --help
+python tools/visualize.py image-cls-attn --help
+python tools/visualize.py image-local-centers --help
+python tools/visualize.py embeddings2d --help
+python tools/evaluate.py distribution --help
+python tools/evaluate.py text-density sample --help
+python tools/evaluate.py text-density features --help
+python tools/evaluate.py text-density report --help
+```
+
+Reusable implementations now live under `unitran/`, and vendored Llama code has been moved from `tools/llama/` to `third_party/llama/`. See `docs/refactor_summary.md` and `docs/tool_refactor_plan.md` for details.
