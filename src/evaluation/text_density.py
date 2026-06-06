@@ -450,7 +450,7 @@ def main() -> None:
     sub = parser.add_subparsers(dest="stage", required=True)
 
     p = sub.add_parser("sample")
-    p.add_argument("--coco_root", default="./coco", type=str)
+    p.add_argument("--coco_root", default="data/mscoco14", type=str)
     p.add_argument("--split", default="train2014", type=str)
     p.add_argument("--ann_path", default=None, type=str)
     p.add_argument("--feature_dir", default="feature/coco2014_dinov2_vitb14_448", type=str)

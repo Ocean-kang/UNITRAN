@@ -115,7 +115,7 @@ bash scripts/run_1_extract.sh
 主要输入：
 
 ```text
-coco/train2014 或 config 中指定的 image_dir
+data/mscoco14/train2014 或 config 中指定的 image_dir
 ```
 
 主要输出：

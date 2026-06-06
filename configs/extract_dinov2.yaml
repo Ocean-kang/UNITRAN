@@ -4,7 +4,7 @@ experiment:
   output_dir: feature/coco2014_dinov2_vitb14_448
 
 data:
-  coco_root: ./coco
+  coco_root: data/mscoco14
   split: train2014
   ann_path: null
   image_dir: null

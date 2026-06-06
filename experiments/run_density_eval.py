@@ -30,7 +30,7 @@ def _sample_args(cfg: dict, out_dir: str | None, local: bool) -> dict:
         n = first_existing(cfg, ["data.num_images", "num_images"], 1000)
         sample_path = f"{out_dir}/sample_{n}.jsonl"
     return {
-        "coco_root": first_existing(cfg, ["data.coco_root", "coco_root"], "./coco"),
+        "coco_root": first_existing(cfg, ["data.coco_root", "coco_root"], "data/mscoco14"),
         "split": first_existing(cfg, ["data.split", "split"], "train2014"),
         "ann_path": first_existing(cfg, ["data.ann_path", "ann_path"], None),
         "feature_dir": first_existing(cfg, ["vision.local_feature_dir" if local else "vision.feature_dir", "feature_dir"], default_feature),

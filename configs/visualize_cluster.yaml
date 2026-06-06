@@ -22,7 +22,7 @@ cluster:
   cluster_dist: null
 
 data:
-  image_root: ./coco/train2014
+  image_root: data/mscoco14/train2014
 
 runtime:
   chunk_images: 1024

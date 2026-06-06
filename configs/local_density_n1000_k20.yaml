@@ -10,7 +10,7 @@ evaluation:
   sw_proj: 128
 
 data:
-  coco_root: ./coco
+  coco_root: data/mscoco14
   split: train2014
   ann_path: null
   num_images: 1000

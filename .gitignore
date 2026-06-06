@@ -217,7 +217,7 @@ __marimo__/
 # Streamlit
 .streamlit/secrets.toml
 
-/coco
+/data/*
 /feature
 /outputs
 Meta-Llama-3-8B-Instruct

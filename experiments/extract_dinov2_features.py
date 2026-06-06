@@ -19,7 +19,7 @@ def main() -> None:
     save_resolved_config(cfg, out_dir)
 
     mapping = {
-        "coco_root": first_existing(cfg, ["data.coco_root", "coco_root"], "./coco"),
+        "coco_root": first_existing(cfg, ["data.coco_root", "coco_root"], "data/mscoco14"),
         "split": first_existing(cfg, ["data.split", "split"], "train2014"),
         "ann_path": first_existing(cfg, ["data.ann_path", "ann_path"], None),
         "image_dir": first_existing(cfg, ["data.image_dir", "image_dir"], None),

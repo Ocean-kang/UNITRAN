@@ -3,7 +3,7 @@
 Extract DINOv2 patch tokens for MSCOCO2014 train2014.
 
 Default target used by this script:
-  - dataset: ./coco/train2014 + ./coco/annotations/captions_train2014.json
+  - dataset: data/mscoco14/train2014 + data/mscoco14/annotations/captions_train2014.json
   - model: dinov2_vitb14
   - resize: 448 x 448
   - patch tokens: [N, 1024, 768]
@@ -378,10 +378,10 @@ def write_global_files(args: argparse.Namespace, rows: List[Dict[str, Any]]) -> 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Extract DINOv2 patch tokens for COCO2014 train2014.")
-    parser.add_argument("--coco_root", type=str, default="./coco", help="COCO root, default: ./coco")
+    parser.add_argument("--coco_root", type=str, default="data/mscoco14", help="COCO root, default: data/mscoco14")
     parser.add_argument("--split", type=str, default="train2014", help="COCO split, default: train2014")
     parser.add_argument("--ann_path", type=str, default=None, help="Optional captions_train2014.json / instances_train2014.json")
-    parser.add_argument("--image_dir", type=str, default=None, help="Optional image dir, e.g. ./coco/train2014")
+    parser.add_argument("--image_dir", type=str, default=None, help="Optional image dir, e.g. data/mscoco14/train2014")
     parser.add_argument("--out_dir", type=str, default="feature/coco2014_dinov2_vitb14_448")
     parser.add_argument("--model", type=str, default="dinov2_vitb14", choices=sorted(MODEL_DIMS.keys()))
     parser.add_argument("--image_size", type=int, default=448)
