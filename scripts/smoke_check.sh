@@ -2,6 +2,7 @@
 set -euo pipefail
 python -m compileall -q src experiments
 python experiments/extract_dinov2_features.py --help >/dev/null
+python experiments/run_global_patch_cluster.py --help >/dev/null
 python experiments/run_local_patch_cluster.py --help >/dev/null
 python experiments/run_density_eval.py --help >/dev/null
 python experiments/run_visualize_cluster.py --help >/dev/null

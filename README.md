@@ -18,6 +18,7 @@ UNITRAN/
 ├── conda.yaml
 ├── configs/                         # 每个实验的 YAML 配置
 │   ├── extract_dinov2.yaml
+│   ├── global_cluster_k1024.yaml
 │   ├── local_cluster_k20.yaml
 │   ├── text_atoms_llama.yaml
 │   ├── local_density_n1000_k20.yaml
@@ -26,6 +27,7 @@ UNITRAN/
 │   └── train_mapping.yaml
 ├── experiments/                     # 统一实验入口
 │   ├── extract_dinov2_features.py
+│   ├── run_global_patch_cluster.py
 │   ├── run_local_patch_cluster.py
 │   ├── run_text_atoms.py
 │   ├── run_density_eval.py
@@ -33,6 +35,7 @@ UNITRAN/
 │   └── train_mapping.py
 ├── scripts/                         # 仅保留少量快捷脚本
 │   ├── run_1_extract.sh
+│   ├── run_2_global_cluster.sh
 │   ├── run_2_local_cluster.sh
 │   ├── run_3_text_atoms.sh
 │   ├── run_4_density_eval.sh
@@ -91,9 +94,12 @@ bash scripts/smoke_check.sh
 
 ```bash
 python -m compileall -q src experiments
-python experiments/run_density_eval.py --help
+python experiments/extract_dinov2_features.py --help
+python experiments/run_global_patch_cluster.py --help
 python experiments/run_local_patch_cluster.py --help
+python experiments/run_density_eval.py --help
 python experiments/run_visualize_cluster.py --help
+python experiments/train_mapping.py --help
 ```
 
 ### Step 1: 提取 DINOv2 patch tokens
@@ -123,7 +129,42 @@ feature/coco2014_dinov2_vitb14_448/
 └── resolved_config.yaml
 ```
 
-### Step 2: 每图 local patch clustering
+### Step 2A: 所有 patch tokens 全局 clustering
+
+这一步是不做每图 local 压缩的对照组：直接把所有图片的所有 DINOv2 patch tokens 输入 streaming KMeans。
+
+配置文件：`configs/global_cluster_k1024.yaml`
+
+```bash
+python experiments/run_global_patch_cluster.py --config configs/global_cluster_k1024.yaml
+# 或
+bash scripts/run_2_global_cluster.sh
+```
+
+主要输入：
+
+```text
+feature/coco2014_dinov2_vitb14_448/patch_tokens/
+```
+
+主要输出：
+
+```text
+feature/coco2014_dinov2_vitb14_448/
+├── kmeans/
+│   ├── centroids_k1024_fp32.npy
+│   ├── centroids_k1024_fp16.npy
+│   ├── cluster_counts_k1024.npy
+│   └── train_log_k1024.jsonl
+├── assignment/
+│   ├── patch_cluster_ids_k1024_uint16.npy
+│   └── patch_cluster_dist_k1024_fp16.npy
+└── resolved_config.yaml
+```
+
+### Step 2B: 每图 local patch clustering
+
+这一步是 local 压缩实验组：每张图内部先聚成固定数量的 local centers，再和 text atoms 做密度比较。
 
 配置文件：`configs/local_cluster_k20.yaml`
 
@@ -245,11 +286,12 @@ python experiments/train_mapping.py --config configs/train_mapping.yaml
 
 ## 4. 推荐的小样本实验顺序
 
-当前建议优先跑通 1000 张图、每图 20 个 local center：
+当前建议优先跑通 1000 张图、每图 20 个 local center。若要做 local 与 non-local 对照，在特征提取后同时跑 Step 2A 和 Step 2B：
 
 ```bash
 bash scripts/smoke_check.sh
 bash scripts/run_1_extract.sh
+bash scripts/run_2_global_cluster.sh
 bash scripts/run_2_local_cluster.sh
 python experiments/run_density_eval.py --config configs/local_density_n1000_k20.yaml --stage sample
 python experiments/run_text_atoms.py --config configs/text_atoms_llama.yaml
@@ -280,16 +322,17 @@ resolved_config.yaml
 
 当前 density evaluation 主要比较：
 
-1. original COCO captions embedding 与 vision local centers 的分布差异。
-2. expanded text atoms embedding 与 vision local centers 的分布差异。
+1. original COCO captions embedding 与 raw patch tokens / vision local centers 的分布差异。
+2. expanded text atoms embedding 与 raw patch tokens / vision local centers 的分布差异。
 3. expanded 是否在 MMD、sliced Wasserstein、coverage、precision/recall 等指标上更接近 vision 分布。
 
 需要特别注意：
 
-1. local center 是每图内部压缩后的视觉 token 表示，不等价于全局 object category。
-2. text atoms 的数量建议与 local_k 对齐，比如每图 20 个 local centers，对应每图 20 个 text atoms。
-3. local center 权重很重要，因为有些 center 可能只覆盖极少 patch，有些 center 覆盖大面积背景或主体区域。
-4. unaligned space 的 density 指标只能说明几何/密度差异，不能直接证明语义对齐成功。
+1. global clustering 是所有 patch tokens 的数据集级聚类，用于 non-local 对照和全局 cluster 可视化。
+2. local center 是每图内部压缩后的视觉 token 表示，不等价于全局 object category。
+3. text atoms 的数量建议与 local_k 对齐，比如每图 20 个 local centers，对应每图 20 个 text atoms。
+4. local center 权重很重要，因为有些 center 可能只覆盖极少 patch，有些 center 覆盖大面积背景或主体区域。
+5. unaligned space 的 density 指标只能说明几何/密度差异，不能直接证明语义对齐成功。
 
 ## 7. 不再维护的旧入口
 
