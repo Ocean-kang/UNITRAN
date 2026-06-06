@@ -1,11 +1,11 @@
 experiment:
-  name: visualize_cluster_topk_k1024
-  output_dir: outputs/visualize_cluster_topk_k1024
+  name: visualize_cluster_extremes_k1024
+  output_dir: outputs/visualize_cluster_extremes_k1024
 
 visualization:
-  mode: cluster_topk       # cluster_topk | cluster_extremes | image_cls_attention | image_local_centers | embedding_2d
+  mode: cluster_extremes   # cluster_topk | cluster_extremes | image_cls_attention | image_local_centers | embedding_2d
   clusters: 0-9            # all, single id, comma list, or range
-  topk: 50
+  topk: 20
   metric: cosine
   tile_size: 224
   collage_cols: 5

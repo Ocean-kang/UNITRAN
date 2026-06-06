@@ -276,6 +276,8 @@ image_local_centers
 embedding_2d
 ```
 
+`cluster_extremes` 用于查看每个全局 cluster center 的 most/least assigned patches。输出中每组最多保留一张图一个 patch，避免 top-k 被同一张图重复占满；主图为 `image+crop` 拼图，attention map 另存为独立拼图，并额外写出 `cluster_stats.jsonl` 记录 cluster size、similarity min/mean/max 和 distance min/mean/max。
+
 ### Step 6: mapping training
 
 配置文件：`configs/train_mapping.yaml`

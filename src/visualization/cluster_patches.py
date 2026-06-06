@@ -20,9 +20,9 @@ feature/coco2014_dinov2_vitb14_448/
 For each requested cluster, it:
   1. finds top-k assigned patch tokens closest to the cluster centroid;
   2. maps each patch token back to its original image and 32x32 patch position;
-  3. saves a marked original image with the selected patch boxed;
+  3. saves an image+crop collage for quick visual inspection;
   4. computes a centroid-to-all-patches similarity map for that image;
-  5. saves a collage for quick visual inspection.
+  5. saves attention maps as separate collage files.
 """
 
 from __future__ import annotations
@@ -312,6 +312,25 @@ def draw_patch_box(im: Image.Image, row: int, col: int, grid_h: int, grid_w: int
     return im
 
 
+def crop_patch_region(im: Image.Image, row: int, col: int, grid_h: int, grid_w: int, scale: int = 8) -> Image.Image:
+    im = im.convert("RGB")
+    x0, y0, x1, y1 = patch_box(im.width, im.height, row, col, grid_h, grid_w)
+    cx = (x0 + x1) // 2
+    cy = (y0 + y1) // 2
+    patch_side = max(x1 - x0, y1 - y0)
+    side = min(max(patch_side * scale, 64), max(im.width, im.height))
+    left = int(max(0, min(im.width - side, cx - side // 2)))
+    top = int(max(0, min(im.height - side, cy - side // 2)))
+    right = int(min(im.width, left + side))
+    bottom = int(min(im.height, top + side))
+    crop = im.crop((left, top, right, bottom))
+    draw = ImageDraw.Draw(crop)
+    box = (x0 - left, y0 - top, x1 - left, y1 - top)
+    for i in range(4):
+        draw.rectangle((box[0] - i, box[1] - i, box[2] + i, box[3] + i), outline=(255, 0, 0))
+    return crop
+
+
 def simple_colormap(values: np.ndarray) -> np.ndarray:
     """Return an RGB heatmap without requiring matplotlib."""
     v = np.clip(values.astype("float32"), 0.0, 1.0)
@@ -394,7 +413,8 @@ def render_cluster(
     cluster_dir = out_dir / f"cluster_{cluster_id:04d}"
     cluster_dir.mkdir(parents=True, exist_ok=True)
     rows = []
-    tiles = []
+    pair_tiles = []
+    attention_tiles = []
     centroid = centroids[cluster_id]
 
     for item in tqdm(top_patches, desc=f"render cluster {cluster_id:04d}", leave=False):
@@ -404,31 +424,37 @@ def render_cluster(
             continue
         im = Image.open(img_path).convert("RGB")
         boxed = draw_patch_box(im.copy(), item.patch_row, item.patch_col, grid_h, grid_w)
-
-        if item.image_index not in image_to_shard:
-            print(f"[warn] image_index {item.image_index} not found in patch token shards")
-            continue
-        shard, local_i = image_to_shard[item.image_index]
-        tokens = np.asarray(patch_mmaps[shard.shard_id][local_i])
-        attention = centroid_attention_map(tokens, centroid, metric).reshape(grid_h, grid_w)
-        overlay = make_attention_overlay(im, attention, alpha=alpha)
-        overlay = draw_patch_box(overlay, item.patch_row, item.patch_col, grid_h, grid_w, width=4)
+        crop = crop_patch_region(im, item.patch_row, item.patch_col, grid_h, grid_w)
 
         label = f"r{item.rank:03d} img{item.image_index} p{item.patch_index} s{item.score:.4f}"
         pair = Image.new("RGB", (tile_size * 2, tile_size + 24), (255, 255, 255))
-        pair.paste(add_label(fit_square(boxed, tile_size), "box | " + label), (0, 0))
-        pair.paste(add_label(fit_square(overlay, tile_size), "map | " + label), (tile_size, 0))
-        tiles.append(pair)
+        pair.paste(add_label(fit_square(boxed, tile_size), "image | " + label), (0, 0))
+        pair.paste(add_label(fit_square(crop, tile_size), "crop | " + label), (tile_size, 0))
+        pair_tiles.append(pair)
+
+        if item.image_index not in image_to_shard:
+            print(f"[warn] image_index {item.image_index} not found in patch token shards")
+            overlay = None
+        else:
+            shard, local_i = image_to_shard[item.image_index]
+            tokens = np.asarray(patch_mmaps[shard.shard_id][local_i])
+            attention = centroid_attention_map(tokens, centroid, metric).reshape(grid_h, grid_w)
+            overlay = make_attention_overlay(im, attention, alpha=alpha)
+            overlay = draw_patch_box(overlay, item.patch_row, item.patch_col, grid_h, grid_w, width=4)
+            attention_tiles.append(add_label(fit_square(overlay, tile_size), "attn | " + label))
 
         if save_each:
             stem = f"rank_{item.rank:03d}_img_{item.image_index:06d}_patch_{item.patch_index:04d}_score_{item.score:.4f}"
-            boxed.save(cluster_dir / f"{stem}_box.jpg", quality=95)
-            overlay.save(cluster_dir / f"{stem}_attn.jpg", quality=95)
+            boxed.save(cluster_dir / f"{stem}_image.jpg", quality=95)
+            crop.save(cluster_dir / f"{stem}_crop.jpg", quality=95)
+            if overlay is not None:
+                overlay.save(cluster_dir / f"{stem}_attn.jpg", quality=95)
 
         rows.append(item.__dict__)
 
     write_jsonl(cluster_dir / "topk_meta.jsonl", rows)
-    save_collage(tiles, cluster_dir / f"cluster_{cluster_id:04d}_top{len(tiles)}_collage.jpg", cols=collage_cols)
+    save_collage(pair_tiles, cluster_dir / f"cluster_{cluster_id:04d}_top{len(pair_tiles)}_image_crop.jpg", cols=collage_cols)
+    save_collage(attention_tiles, cluster_dir / f"cluster_{cluster_id:04d}_top{len(attention_tiles)}_attention.jpg", cols=collage_cols)
 
 
 def main() -> None:
