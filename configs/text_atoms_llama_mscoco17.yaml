@@ -1,0 +1,25 @@
+experiment:
+  name: text_atoms_llama_k20_mscoco17
+  output_dir: outputs/text_atoms_llama_k20_mscoco17
+
+data:
+  limit: 0
+
+text:
+  sample_jsonl: outputs/local_density_n1000_k20_mscoco17/sample_1000.jsonl
+  out_jsonl: outputs/text_atoms_llama_k20_mscoco17/text_atoms.jsonl
+  max_atoms: 20
+  num_atoms: 20
+
+llm:
+  llama_root: external/llama
+  ckpt_dir: ./Meta-Llama-3-8B-Instruct
+  tokenizer_path: ./Meta-Llama-3-8B-Instruct/tokenizer.model
+  max_seq_len: 2048
+  max_batch_size: 4
+  max_gen_len: 512
+  temperature: 0.2
+  top_p: 0.9
+
+runtime:
+  resume: true

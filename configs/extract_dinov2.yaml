@@ -1,7 +1,7 @@
 experiment:
   name: extract_dinov2_vitb14_448
   seed: 0
-  output_dir: feature/coco2014_dinov2_vitb14_448
+  output_dir: feature/coco2014_dinov2_vitb14_reg_448
 
 data:
   coco_root: data/mscoco14
@@ -11,7 +11,7 @@ data:
   max_images: null
 
 vision:
-  model: dinov2_vitb14
+  model: dinov2_vitb14_reg
   image_size: 448
   patch_size: 14
   save_dtype: float16

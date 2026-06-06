@@ -16,7 +16,7 @@ data:
   num_images: 5000
 
 vision:
-  local_feature_dir: feature/coco2014_dinov2_vitb14_448_local_k20
+  local_feature_dir: feature/coco2014_dinov2_vitb14_reg_448_local_k20
 
 text:
   max_captions: 5

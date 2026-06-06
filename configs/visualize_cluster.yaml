@@ -13,7 +13,7 @@ visualization:
   save_each: false
 
 vision:
-  feature_dir: feature/coco2014_dinov2_vitb14_448
+  feature_dir: feature/coco2014_dinov2_vitb14_reg_448
 
 cluster:
   k: 1024

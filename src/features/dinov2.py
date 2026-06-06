@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """
-Extract DINOv2 patch tokens for MSCOCO2014 train2014.
+Extract DINOv2 patch tokens for MS COCO images.
 
 Default target used by this script:
   - dataset: data/mscoco14/train2014 + data/mscoco14/annotations/captions_train2014.json
+  - MSCOCO2017 can be used with data/mscoco17 + train2017/val2017
   - model: dinov2_vitb14
   - resize: 448 x 448
   - patch tokens: [N, 1024, 768]
@@ -89,6 +90,15 @@ def load_jsonl(path: Path) -> List[Dict[str, Any]]:
             if line:
                 rows.append(json.loads(line))
     return rows
+
+
+def infer_coco_dataset_name(coco_root: Path, split: str) -> str:
+    text = f"{coco_root.name} {split}".lower()
+    if "2017" in text or "mscoco17" in text or "coco17" in text:
+        return "mscoco2017"
+    if "2014" in text or "mscoco14" in text or "coco14" in text:
+        return "mscoco2014"
+    return coco_root.name or "coco"
 
 
 def find_default_ann(coco_root: Path, split: str) -> Optional[Path]:
@@ -332,7 +342,7 @@ def make_enriched_row(row: Dict[str, Any], args: argparse.Namespace, local_i: in
 def write_global_files(args: argparse.Namespace, rows: List[Dict[str, Any]]) -> None:
     out_dir = Path(args.out_dir)
     meta = {
-        "dataset": "mscoco2014",
+        "dataset": infer_coco_dataset_name(Path(args.coco_root), args.split),
         "split": args.split,
         "num_images": len(rows),
         "coco_root": str(Path(args.coco_root).resolve()),
@@ -377,11 +387,11 @@ def write_global_files(args: argparse.Namespace, rows: List[Dict[str, Any]]) -> 
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Extract DINOv2 patch tokens for COCO2014 train2014.")
-    parser.add_argument("--coco_root", type=str, default="data/mscoco14", help="COCO root, default: data/mscoco14")
-    parser.add_argument("--split", type=str, default="train2014", help="COCO split, default: train2014")
-    parser.add_argument("--ann_path", type=str, default=None, help="Optional captions_train2014.json / instances_train2014.json")
-    parser.add_argument("--image_dir", type=str, default=None, help="Optional image dir, e.g. data/mscoco14/train2014")
+    parser = argparse.ArgumentParser(description="Extract DINOv2 patch tokens for MS COCO images.")
+    parser.add_argument("--coco_root", type=str, default="data/mscoco14", help="COCO root, e.g. data/mscoco14 or data/mscoco17")
+    parser.add_argument("--split", type=str, default="train2014", help="COCO split, e.g. train2014, val2014, train2017, val2017")
+    parser.add_argument("--ann_path", type=str, default=None, help="Optional captions_<split>.json / instances_<split>.json")
+    parser.add_argument("--image_dir", type=str, default=None, help="Optional image dir, e.g. data/mscoco14/train2014 or data/mscoco17/train2017")
     parser.add_argument("--out_dir", type=str, default="feature/coco2014_dinov2_vitb14_448")
     parser.add_argument("--model", type=str, default="dinov2_vitb14", choices=sorted(MODEL_DIMS.keys()))
     parser.add_argument("--image_size", type=int, default=448)

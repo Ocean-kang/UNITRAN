@@ -1,0 +1,22 @@
+experiment:
+  name: local_cluster_k20_mscoco17
+  seed: 1234
+  output_dir: feature/coco2017_dinov2_vitb14_reg_448_local_k20
+
+vision:
+  feature_dir: feature/coco2017_dinov2_vitb14_reg_448
+
+cluster:
+  local_k: 20
+  local_iters: 10
+  metric: cosine
+  save_dtype: float16
+
+runtime:
+  chunk_images: 64
+  device: cuda:0
+  compute_dtype: float16
+  overwrite: false
+
+data:
+  max_images: null

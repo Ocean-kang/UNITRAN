@@ -72,9 +72,9 @@ def query_captions(image_name: str, ann_path: Path) -> Tuple[int, List[str]]:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Query MS COCO captions by image file name.")
-    parser.add_argument("--image_name", type=str, required=True, help="Example: COCO_train2014_000000000009.jpg")
-    parser.add_argument("--coco_root", type=str, default="data/mscoco14", help="COCO root, default: data/mscoco14")
-    parser.add_argument("--split", type=str, default="train2014", help="COCO split, default: train2014")
+    parser.add_argument("--image_name", type=str, required=True, help="Example: COCO_train2014_000000000009.jpg or 000000000009.jpg")
+    parser.add_argument("--coco_root", type=str, default="data/mscoco14", help="COCO root, e.g. data/mscoco14 or data/mscoco17")
+    parser.add_argument("--split", type=str, default="train2014", help="COCO split, e.g. train2014, val2014, train2017, val2017")
     parser.add_argument("--ann_path", type=str, default=None, help="Optional captions annotation path")
     args = parser.parse_args()
 

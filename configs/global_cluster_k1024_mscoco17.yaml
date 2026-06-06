@@ -1,0 +1,28 @@
+experiment:
+  name: global_cluster_k1024_mscoco17
+  seed: 1234
+  output_dir: feature/coco2017_dinov2_vitb14_reg_448
+
+vision:
+  feature_dir: feature/coco2017_dinov2_vitb14_reg_448
+
+cluster:
+  k: 1024
+  num_iters: 20
+  metric: cosine
+  assign: true
+  save_dist: true
+  only_assign: false
+  init_centroids: null
+  empty_cluster_policy: keep_old
+  assignment_tag: ""
+
+runtime:
+  chunk_images: 128
+  distance_chunk: 0
+  device: cuda:0
+  compute_dtype: float16
+  overwrite: false
+
+data:
+  max_images: null
