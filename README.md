@@ -286,6 +286,15 @@ embedding_2d
 python experiments/train_mapping.py --config configs/train_mapping.yaml
 ```
 
+`mapping.method` 用于切换训练方法：
+
+```yaml
+mapping:
+  method: mini_vec2vec   # 或 vec2vec
+```
+
+当前同一个入口支持两种方法：`mini_vec2vec` 保留原来的 centroid/QAP + Procrustes + ICP-style refinement；`vec2vec` 使用 adversarial + reconstruction + cycle-consistency + VSP 的无配对映射训练。新增方法时只需要在 `src/training/unitran_mapping.py` 的 `METHODS` 注册表中增加一个训练函数。
+
 ## 4. 推荐的小样本实验顺序
 
 当前建议优先跑通 1000 张图、每图 20 个 local center。若要做 local 与 non-local 对照，在特征提取后同时跑 Step 2A 和 Step 2B：

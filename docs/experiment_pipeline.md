@@ -12,7 +12,7 @@
 4. 使用 sentence-transformer 提取 text embeddings。
 5. 对比 original captions、expanded text atoms 与 vision local centers 的密度差异。
 6. 使用可视化检查 cluster / local center 是否有明确视觉语义。
-7. 使用 vision/text 特征训练 UNITRAN / vec2vec-style mapping。
+7. 使用 vision/text 特征训练 UNITRAN / vec2vec-style mapping；在 `configs/train_mapping.yaml` 中通过 `mapping.method: mini_vec2vec` 或 `mapping.method: vec2vec` 切换方法。
 
 ## 入口
 
