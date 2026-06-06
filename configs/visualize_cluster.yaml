@@ -1,0 +1,28 @@
+experiment:
+  name: visualize_cluster_topk_k1024
+  output_dir: outputs/visualize_cluster_topk_k1024
+
+visualization:
+  mode: cluster_topk       # cluster_topk | cluster_extremes | image_cls_attention | image_local_centers | embedding_2d
+  clusters: 0-9            # all, single id, comma list, or range
+  topk: 50
+  metric: cosine
+  tile_size: 224
+  collage_cols: 5
+  overlay_alpha: 0.45
+  save_each: false
+
+vision:
+  feature_dir: feature/coco2014_dinov2_vitb14_448
+
+cluster:
+  k: 1024
+  centroids: null
+  cluster_ids: null
+  cluster_dist: null
+
+data:
+  image_root: ./coco/train2014
+
+runtime:
+  chunk_images: 1024

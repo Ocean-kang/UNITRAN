@@ -1,458 +1,322 @@
 # UNITRAN
 
-UNITRAN is a lightweight research codebase for studying unpaired translation and distribution alignment between DINOv2 vision features and text embeddings.
+UNITRAN 是一个面向研究迭代的实验代码仓库，当前目标是研究 DINOv2 patch/local-center 视觉特征与 LLM 生成的 text atoms 在分布层面的差异，并为后续 UNITRAN / vec2vec-style unpaired mapping 训练提供可复现输入。
 
-The current repository keeps the workflow explicit and simple: `tools/` contains command-line entrypoints, `unitran/` contains reusable implementations, `scripts/` contains runnable shell examples, and `third_party/` stores vendored external code.
+本仓库不追求通用 Python package 风格，优先保证：
 
-## What this repository does
+1. 实验入口少。
+2. 每个实验有固定 config。
+3. 输入、输出、命令清楚。
+4. 结果可复现、可检查。
+5. 后续 idea 容易快速插入。
 
-The main experimental flow is:
-
-```text
-COCO images
-  -> extract DINOv2 patch tokens
-  -> cluster patch tokens globally or per image
-  -> inspect clusters with query and visualization tools
-  -> build / cluster text embeddings or text atoms
-  -> compare text and vision distributions
-  -> train a simple UNITRAN mapping between embedding spaces
-```
-
-Supported tasks:
-
-1. Extract DINOv2 patch tokens from MS COCO images.
-2. Run streaming KMeans over all patch tokens.
-3. Build per-image local patch centers and optionally cluster them globally.
-4. Query COCO captions or patch-token cluster assignments for one image.
-5. Visualize cluster top-k patches, cluster extremes, CLS attention, local-center attention, and 2D embedding projections.
-6. Cluster caption/text embeddings.
-7. Evaluate text/vision distribution density with original captions and LLM-expanded semantic atoms.
-8. Train a simple unpaired UNITRAN-style orthogonal mapping.
-
-## Repository structure
+## 1. 当前仓库结构
 
 ```text
 UNITRAN/
 ├── README.md
 ├── conda.yaml
-├── scripts/
-│   ├── extract/
-│   ├── cluster/
-│   ├── query/
-│   ├── visualize/
-│   └── evaluate/
-├── tools/
-│   ├── extract.py
+├── configs/                         # 每个实验的 YAML 配置
+│   ├── extract_dinov2.yaml
+│   ├── local_cluster_k20.yaml
+│   ├── text_atoms_llama.yaml
+│   ├── local_density_n1000_k20.yaml
+│   ├── local_density_n5000_k20.yaml
+│   ├── visualize_cluster.yaml
+│   └── train_mapping.yaml
+├── experiments/                     # 统一实验入口
+│   ├── extract_dinov2_features.py
+│   ├── run_local_patch_cluster.py
+│   ├── run_text_atoms.py
+│   ├── run_density_eval.py
+│   ├── run_visualize_cluster.py
+│   └── train_mapping.py
+├── scripts/                         # 仅保留少量快捷脚本
+│   ├── run_1_extract.sh
+│   ├── run_2_local_cluster.sh
+│   ├── run_3_text_atoms.sh
+│   ├── run_4_density_eval.sh
+│   ├── run_5_visualize.sh
+│   └── smoke_check.sh
+├── src/                             # 可复用实现与轻量 facade
+│   ├── io.py
+│   ├── dino.py
 │   ├── cluster.py
-│   ├── query.py
-│   ├── visualize.py
+│   ├── text_atoms.py
+│   ├── metrics.py
 │   ├── evaluate.py
-│   ├── generate_text_atoms.py
-│   └── train_unitran.py
-├── unitran/
-│   ├── datasets/
-│   ├── features/
+│   ├── visualize.py
+│   ├── mapping.py
+│   ├── experiment_utils.py
 │   ├── clustering/
-│   ├── visualization/
-│   ├── evaluation/
+│   ├── datasets/
 │   ├── embeddings/
+│   ├── evaluation/
+│   ├── features/
 │   ├── training/
-│   └── utils/
-└── third_party/
-    └── llama/
+│   ├── utils/
+│   └── visualization/
+├── external/llama/                  # Llama 相关代码，不作为 density eval 强依赖
+├── outputs/
+├── data/
+└── docs/
 ```
 
-The preferred entrypoints are grouped by task:
+核心变化：旧的 `tools/` 和多层 `scripts/*/*.sh` 已移除；主流程统一改为：
 
 ```bash
-python tools/extract.py --help
-python tools/cluster.py <patch-global|patch-local|caption|match-centroids> --help
-python tools/query.py <coco-captions|image-clusters> --help
-python tools/visualize.py <cluster-topk|cluster-extremes|image-cls-attn|image-local-centers|embeddings2d> --help
-python tools/evaluate.py <distribution|text-density> --help
-python tools/generate_text_atoms.py --help
-python tools/train_unitran.py --help
+python experiments/xxx.py --config configs/xxx.yaml
 ```
 
-## Environment
-
-Create the environment from the repository root:
+## 2. 环境
 
 ```bash
 conda env create -f conda.yaml
 conda activate unitran
 ```
 
-The main dependencies are Python 3.10, PyTorch, NumPy, SciPy, scikit-learn, Matplotlib, tqdm, and Pillow. DINOv2 is loaded through `torch.hub`, so the model must be downloadable or already cached on the server.
+如果只做 smoke check，不需要真实 COCO 数据或 GPU；如果要实际跑 DINOv2 / text embedding / Llama，需要相应模型、数据和 CUDA 环境。
 
-## Data layout
+## 3. 主流程命令
 
-For the COCO patch-token workflow, the default layout is:
+### Step 0: smoke check
 
-```text
-coco/
-├── train2014/
-│   └── COCO_train2014_*.jpg
-└── annotations/
-    └── captions_train2014.json
+每次重构或迁移后先跑：
+
+```bash
+bash scripts/smoke_check.sh
 ```
 
-The default feature directory is:
+它会检查：
+
+```bash
+python -m compileall -q src experiments
+python experiments/run_density_eval.py --help
+python experiments/run_local_patch_cluster.py --help
+python experiments/run_visualize_cluster.py --help
+```
+
+### Step 1: 提取 DINOv2 patch tokens
+
+配置文件：`configs/extract_dinov2.yaml`
+
+```bash
+python experiments/extract_dinov2_features.py --config configs/extract_dinov2.yaml
+# 或
+bash scripts/run_1_extract.sh
+```
+
+主要输入：
+
+```text
+coco/train2014 或 config 中指定的 image_dir
+```
+
+主要输出：
 
 ```text
 feature/coco2014_dinov2_vitb14_448/
-```
-
-After extraction, it contains:
-
-```text
-feature/coco2014_dinov2_vitb14_448/
-├── images.jsonl
 ├── meta.json
+├── images.jsonl
+├── patch_tokens/
 ├── patch_tokens_shape.json
-└── patch_tokens/
-    ├── shard_000_fp16.mmap
-    └── shard_000.meta.json
+└── resolved_config.yaml
 ```
 
-## 1. Extract DINOv2 patch tokens
+### Step 2: 每图 local patch clustering
 
-Run the multi-GPU launcher:
+配置文件：`configs/local_cluster_k20.yaml`
 
 ```bash
-bash scripts/extract/run_extract_coco_dinov2_patch_4gpu.sh
+python experiments/run_local_patch_cluster.py --config configs/local_cluster_k20.yaml
+# 或
+bash scripts/run_2_local_cluster.sh
 ```
 
-Single-process example:
-
-```bash
-CUDA_VISIBLE_DEVICES=0 python tools/extract.py \
-  --coco_root ./coco \
-  --split train2014 \
-  --out_dir feature/coco2014_dinov2_vitb14_448 \
-  --model dinov2_vitb14 \
-  --image_size 448 \
-  --batch_size 32 \
-  --num_workers 8 \
-  --save_dtype float16 \
-  --amp_dtype float16 \
-  --write_global_meta
-```
-
-Use `--save_image_mean_pt` if you also want image-level mean patch features for embedding experiments.
-
-## 2. Cluster vision patch tokens
-
-### Global patch-token KMeans
-
-```bash
-bash scripts/cluster/run_kmeans_coco_dinov2_patch.sh
-```
-
-Equivalent command:
-
-```bash
-CUDA_VISIBLE_DEVICES=0 python tools/cluster.py patch-global \
-  --feature_dir feature/coco2014_dinov2_vitb14_448 \
-  --k 512 \
-  --num_iters 20 \
-  --metric cosine \
-  --chunk_images 128 \
-  --compute_dtype float16 \
-  --device cuda:0 \
-  --assign \
-  --save_dist \
-  --overwrite
-```
-
-Important outputs:
+主要输入：
 
 ```text
-feature/coco2014_dinov2_vitb14_448/
-├── kmeans/
-│   ├── centroids_k512_fp32.npy
-│   ├── centroids_k512_fp16.npy
-│   ├── cluster_counts_k512.npy
-│   ├── config_k512.json
-│   └── train_log_k512.jsonl
-└── assignment/
-    ├── patch_cluster_ids_k512_uint16.npy
-    ├── patch_cluster_ids_k512_shape.json
-    └── patch_cluster_dist_k512_fp16.npy
+feature/coco2014_dinov2_vitb14_448/patch_tokens/
 ```
 
-Increase `--chunk_images` for better throughput if GPU memory allows. Use smaller `--k`, fewer `--num_iters`, and `--max_images` for debugging.
-
-### Per-image local centers
-
-```bash
-bash scripts/cluster/run_local_patch_center_kmeans_coco_dinov2.sh
-```
-
-This compresses each image's raw patch tokens into `LOCAL_K` local centers, then optionally runs global KMeans on the local-center feature directory.
-
-## 3. Query images and clusters
-
-Query COCO captions:
-
-```bash
-python tools/query.py coco-captions \
-  --coco_root ./coco \
-  --split train2014 \
-  --image_name COCO_train2014_000000000009.jpg
-```
-
-Query the cluster-id grid for one image:
-
-```bash
-python tools/query.py image-clusters \
-  --feature_dir feature/coco2014_dinov2_vitb14_448 \
-  --image_name COCO_train2014_000000000009.jpg \
-  --ks all
-```
-
-The image-cluster query writes outputs under:
+主要输出：
 
 ```text
-feature/coco2014_dinov2_vitb14_448/query_image_patch_clusters/<image_stem>/
+feature/coco2014_dinov2_vitb14_448_local_k20/
+├── local_centers.pt
+├── local_assignments.pt
+├── local_center_weights.pt
+├── image_ids.json
+├── meta.json
+└── resolved_config.yaml
 ```
 
-## 4. Visualize vision clusters
+注意：`local_center_weights.pt` 用于记录每个 local center 覆盖的 patch 数量，避免把所有 center 错误理解为等权视觉分布。
 
-Visualize top-k patches for selected global clusters:
+### Step 3: 构造 text atoms
+
+配置文件：`configs/text_atoms_llama.yaml`
 
 ```bash
-python tools/visualize.py cluster-topk \
-  --feature_dir feature/coco2014_dinov2_vitb14_448 \
-  --k 1024 \
-  --topk 50 \
-  --clusters 0 \
-  --metric cosine \
-  --chunk_images 1024 \
-  --tile_size 224 \
-  --collage_cols 5
+python experiments/run_text_atoms.py --config configs/text_atoms_llama.yaml
+# 或
+bash scripts/run_3_text_atoms.sh
 ```
 
-Visualize the most similar and least similar assigned patches within a cluster:
-
-```bash
-python tools/visualize.py cluster-extremes \
-  --feature_dir feature/coco2014_dinov2_vitb14_448 \
-  --k 1024 \
-  --topk 50 \
-  --clusters 0 \
-  --metric cosine
-```
-
-Visualize DINOv2 CLS attention for one image:
-
-```bash
-python tools/visualize.py image-cls-attn \
-  --feature_dir feature/coco2014_dinov2_vitb14_448 \
-  --image_name COCO_train2014_000000000009.jpg \
-  --device cuda
-```
-
-Visualize per-image local-center attention maps:
-
-```bash
-python tools/visualize.py image-local-centers \
-  --raw_feature_dir feature/coco2014_dinov2_vitb14_448 \
-  --local_feature_dir feature/coco2014_dinov2_vitb14_448_local_k20 \
-  --image_name COCO_train2014_000000000009.jpg \
-  --local_centers all \
-  --metric cosine
-```
-
-## 5. Cluster and visualize text embeddings
-
-Cluster existing text embeddings:
-
-```bash
-python tools/cluster.py caption \
-  --input_pt feature/text_embeddings.pt \
-  --text_key text_feats \
-  --k 512 \
-  --preprocess l2 \
-  --out_dir feature/caption_kmeans \
-  --overwrite
-```
-
-Visualize vision and text centroids in one 2D space:
-
-```bash
-python tools/visualize.py embeddings2d \
-  --vision_pt feature/coco2014_dinov2_vitb14_448/kmeans/centroids_k512_fp32.npy \
-  --text_pt feature/caption_kmeans/centroids_k512_fp32.npy \
-  --method pca \
-  --preprocess l2 \
-  --out_dir outputs/vis \
-  --prefix vision_caption_centroids_k512
-```
-
-If dimensions differ, the tool preserves the existing zero-padding behavior before projection.
-
-## 6. Text-density evaluation with semantic atoms
-
-The text-density pipeline tests whether expanded text atoms better match the DINOv2 patch-token distribution than original COCO captions.
-
-Run the launcher:
-
-```bash
-bash scripts/evaluate/run_text_density_eval_1000.sh
-```
-
-Or run the three stages manually:
-
-```bash
-python tools/evaluate.py text-density sample \
-  --coco_root ./coco \
-  --split train2014 \
-  --feature_dir feature/coco2014_dinov2_vitb14_448 \
-  --num_images 1000 \
-  --out_jsonl outputs/text_density_eval/sample_1000.jsonl
-```
-
-```bash
-python tools/generate_text_atoms.py \
-  --sample_jsonl outputs/text_density_eval/sample_1000.jsonl \
-  --out_jsonl outputs/text_density_eval/recaption_atoms_1000.jsonl \
-  --llama_root ./third_party \
-  --ckpt_dir /path/to/Meta-Llama-3-8B-Instruct \
-  --tokenizer_path /path/to/Meta-Llama-3-8B-Instruct/tokenizer.model \
-  --max_batch_size 4 \
-  --resume
-```
-
-```bash
-python tools/evaluate.py text-density features \
-  --sample_jsonl outputs/text_density_eval/sample_1000.jsonl \
-  --recaption_jsonl outputs/text_density_eval/recaption_atoms_1000.jsonl \
-  --feature_dir feature/coco2014_dinov2_vitb14_448 \
-  --text_model sentence-transformers/all-mpnet-base-v2 \
-  --patches_per_image 64 \
-  --device cuda \
-  --out_dir outputs/text_density_eval
-
-python tools/evaluate.py text-density report \
-  --out_dir outputs/text_density_eval \
-  --max_points 20000
-```
-
-Main outputs:
+主要输入：
 
 ```text
-outputs/text_density_eval/
+outputs/local_density_n1000_k20/sample_1000.jsonl
+```
+
+主要输出：
+
+```text
+outputs/text_atoms_llama_k20/text_atoms.jsonl
+```
+
+说明：Llama 只负责提前生成 text atoms；density evaluation 不默认强依赖 Llama，只读取已经存在的 `recaption_jsonl`。
+
+### Step 4: density evaluation
+
+配置文件：`configs/local_density_n1000_k20.yaml`
+
+```bash
+python experiments/run_density_eval.py --config configs/local_density_n1000_k20.yaml --stage all
+# 或
+bash scripts/run_4_density_eval.sh
+```
+
+`--stage` 可选：
+
+```text
+sample    只生成实验样本 jsonl
+features  只提取 original / expanded text embeddings 并配平 vision local centers
+report    只计算 metrics
+all       依次执行 sample -> features -> report
+```
+
+主要输出：
+
+```text
+outputs/local_density_n1000_k20/
+├── resolved_config.yaml
 ├── sample_1000.jsonl
-├── recaption_atoms_1000.jsonl
-├── density_eval_original.pt
-├── density_eval_expanded.pt
-└── density_report.json
+├── vision_local_centers.pt
+├── text_original_exact.pt
+├── text_expanded_exact.pt
+└── local_density_report.json
 ```
 
-## 7. Train UNITRAN mapping
+### Step 5: 可视化
 
-`tools/train_unitran.py` expects the embedding directory to contain:
+配置文件：`configs/visualize_cluster.yaml`
+
+```bash
+python experiments/run_visualize_cluster.py --config configs/visualize_cluster.yaml
+# 或
+bash scripts/run_5_visualize.sh
+```
+
+通过 `visualization.mode` 切换可视化类型：
+
+```yaml
+visualization:
+  mode: cluster_topk
+```
+
+可选值：
 
 ```text
-talk2dino_avg_self_attn_out_80000.pt
-val_paired_8192.pt
+cluster_topk
+cluster_extremes
+image_cls_attention
+image_local_centers
+embedding_2d
 ```
 
-Each file should contain `vision_feats` and `text_feats`.
+### Step 6: mapping training
 
-Run:
+配置文件：`configs/train_mapping.yaml`
 
 ```bash
-CUDA_VISIBLE_DEVICES=0 python tools/train_unitran.py \
-  --embedding_dir /path/to/embedding_dir \
-  --source dinov2 \
-  --target text \
-  --out_dir outputs/unitran \
-  --seed 0
+python experiments/train_mapping.py --config configs/train_mapping.yaml
 ```
 
-Main outputs:
+## 4. 推荐的小样本实验顺序
+
+当前建议优先跑通 1000 张图、每图 20 个 local center：
+
+```bash
+bash scripts/smoke_check.sh
+bash scripts/run_1_extract.sh
+bash scripts/run_2_local_cluster.sh
+python experiments/run_density_eval.py --config configs/local_density_n1000_k20.yaml --stage sample
+python experiments/run_text_atoms.py --config configs/text_atoms_llama.yaml
+python experiments/run_density_eval.py --config configs/local_density_n1000_k20.yaml --stage features
+python experiments/run_density_eval.py --config configs/local_density_n1000_k20.yaml --stage report
+```
+
+如果已经有 `text_atoms.jsonl`，可以跳过 Llama 生成步骤，直接在 `configs/local_density_n1000_k20.yaml` 中修改：
+
+```yaml
+text:
+  recaption_jsonl: path/to/your/text_atoms.jsonl
+```
+
+## 5. 配置规则
+
+每个实验脚本只从 config 读取默认参数。需要修改路径、数量、K 值、模型、输出目录时，优先改 YAML，不要改 Python 代码。
+
+每次运行会在输出目录保存：
 
 ```text
-outputs/unitran/
-├── W_dinov2_to_text_seed0.pt
-└── result_dinov2_to_text_seed0.json
+resolved_config.yaml
 ```
 
-## 8. General distribution metrics
+这样可以回溯某次实验真实使用的参数。
 
-For one file containing both `vision_feats` and `text_feats`:
+## 6. 结果解释重点
+
+当前 density evaluation 主要比较：
+
+1. original COCO captions embedding 与 vision local centers 的分布差异。
+2. expanded text atoms embedding 与 vision local centers 的分布差异。
+3. expanded 是否在 MMD、sliced Wasserstein、coverage、precision/recall 等指标上更接近 vision 分布。
+
+需要特别注意：
+
+1. local center 是每图内部压缩后的视觉 token 表示，不等价于全局 object category。
+2. text atoms 的数量建议与 local_k 对齐，比如每图 20 个 local centers，对应每图 20 个 text atoms。
+3. local center 权重很重要，因为有些 center 可能只覆盖极少 patch，有些 center 覆盖大面积背景或主体区域。
+4. unaligned space 的 density 指标只能说明几何/密度差异，不能直接证明语义对齐成功。
+
+## 7. 不再维护的旧入口
+
+旧版本中的这些入口已移除或不再作为主流程维护：
+
+```text
+tools/*.py
+scripts/cluster/*.sh
+scripts/evaluate/*.sh
+scripts/extract/*.sh
+scripts/query/*.sh
+scripts/visualize/*.sh
+```
+
+请使用：
 
 ```bash
-python tools/evaluate.py distribution \
-  --input_pt /path/to/features.pt \
-  --vision_key vision_feats \
-  --text_key text_feats \
-  --preprocess unitran \
-  --max_points 2000 \
-  --out_json outputs/distribution_metric.json
+python experiments/xxx.py --config configs/xxx.yaml
 ```
 
-For two separate files:
+## 8. 文档
 
-```bash
-python tools/evaluate.py distribution \
-  --vision_pt /path/to/vision.pt \
-  --text_pt /path/to/text.pt \
-  --vision_key vision_feats \
-  --text_key text_feats \
-  --preprocess unitran \
-  --out_json outputs/distribution_metric.json
+更多说明见：
+
+```text
+docs/experiment_pipeline.md
+docs/result_format.md
+docs/known_issues.md
+docs/refactor_summary.md
 ```
-
-## Smoke checks
-
-Run these checks after installing dependencies:
-
-```bash
-python -m compileall -q tools unitran third_party
-
-python tools/extract.py --help
-python tools/cluster.py patch-global --help
-python tools/cluster.py patch-local --help
-python tools/cluster.py caption --help
-python tools/cluster.py match-centroids --help
-python tools/query.py coco-captions --help
-python tools/query.py image-clusters --help
-python tools/visualize.py cluster-topk --help
-python tools/visualize.py cluster-extremes --help
-python tools/visualize.py image-cls-attn --help
-python tools/visualize.py image-local-centers --help
-python tools/visualize.py embeddings2d --help
-python tools/evaluate.py distribution --help
-python tools/evaluate.py text-density sample --help
-python tools/evaluate.py text-density features --help
-python tools/evaluate.py text-density report --help
-python tools/generate_text_atoms.py --help
-python tools/train_unitran.py --help
-```
-
-Full extraction, clustering, and visualization checks require COCO files, DINOv2 weights, feature files, and a CUDA environment.
-
-## Common issues
-
-### Script cannot find `tools/...`
-
-Run shell launchers from the repository root, or use the launchers under `scripts/<workflow>/`, which change to the repository root automatically.
-
-### Visualization cannot find centroid or assignment files
-
-Make sure `--k` matches the KMeans run. For example, `--k 512` produces `centroids_k512_fp32.npy`, not `centroids_k1024_fp32.npy`.
-
-### KMeans is slow
-
-Streaming KMeans scans all patch tokens every iteration. Increase `--chunk_images` if memory allows, reduce `--max_images` for debugging, and test with smaller `--k` before full runs.
-
-### DINOv2 model loading fails
-
-Make sure the server can access `torch.hub` or already has the DINOv2 model cached.
-
-## License
-
-See `LICENSE`.

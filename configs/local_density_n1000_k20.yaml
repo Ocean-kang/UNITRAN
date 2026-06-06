@@ -1,0 +1,33 @@
+experiment:
+  name: local_density_n1000_k20
+  seed: 42
+  output_dir: outputs/local_density_n1000_k20
+
+evaluation:
+  kind: local
+  max_points: 20000
+  knn_k: 5
+  sw_proj: 128
+
+data:
+  coco_root: ./coco
+  split: train2014
+  ann_path: null
+  num_images: 1000
+
+vision:
+  local_feature_dir: feature/coco2014_dinov2_vitb14_448_local_k20
+
+text:
+  max_captions: 5
+  recaption_jsonl: outputs/text_atoms_llama_k20/text_atoms.jsonl
+  embedding_model: sentence-transformers/all-mpnet-base-v2
+  atoms_per_image: 20
+
+sample:
+  mode: first
+  out_jsonl: outputs/local_density_n1000_k20/sample_1000.jsonl
+
+runtime:
+  text_batch_size: 128
+  device: cuda

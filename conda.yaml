@@ -10,6 +10,7 @@ dependencies:
   - scikit-learn=1.5.2
   - matplotlib=3.9.2
   - tqdm=4.66.5
+  - pyyaml
   - pip:
       - --extra-index-url https://download.pytorch.org/whl/cu128
       - torch==2.10.0+cu128

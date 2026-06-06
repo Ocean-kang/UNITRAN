@@ -1,0 +1,23 @@
+experiment:
+  name: train_mapping_clip_to_dinov2
+  seed: 0
+  output_dir: outputs/mapping_clip_to_dinov2
+
+data:
+  embedding_dir: outputs/local_density_n1000_k20
+
+mapping:
+  source: clip
+  target: dinov2
+
+training:
+  num_anchor_runs: 30
+  num_clusters: 20
+  qap_runs: 30
+  anchor_subsample: 10000
+  initial_k: 50
+  refine_iters: 100
+  refine_sample: 10000
+  refine_k: 50
+  refine2_clusters: 500
+  alpha: 0.5

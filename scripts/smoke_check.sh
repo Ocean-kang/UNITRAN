@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+set -euo pipefail
+python -m compileall -q src experiments
+python experiments/extract_dinov2_features.py --help >/dev/null
+python experiments/run_local_patch_cluster.py --help >/dev/null
+python experiments/run_density_eval.py --help >/dev/null
+python experiments/run_visualize_cluster.py --help >/dev/null
+python experiments/train_mapping.py --help >/dev/null
+echo "smoke check passed"
