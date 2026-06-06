@@ -294,7 +294,8 @@ def main() -> None:
         "cluster_dist": str(dist_path),
         "out_dir": str(out_dir),
         "groups": ["most_similar", "least_similar"],
-        "note": "Each group keeps at most one selected patch per image. Main collages are image+crop pairs; attention maps are saved as separate collage files.",
+        "filename_tags": {"most_similar": "top", "least_similar": "bottom"},
+        "note": "Each group keeps at most one selected patch per image. Top and bottom collages are saved in the same cluster folder with different filename tags.",
     }
     write_json(out_dir / "config.json", config)
 
@@ -305,7 +306,7 @@ def main() -> None:
             centroids=centroids,
             image_to_shard=image_to_shard,
             patch_mmaps=patch_mmaps,
-            out_dir=out_dir / "most_similar",
+            out_dir=out_dir,
             metric=args.metric,
             grid_h=grid_h,
             grid_w=grid_w,
@@ -313,6 +314,7 @@ def main() -> None:
             collage_cols=args.collage_cols,
             alpha=args.overlay_alpha,
             save_each=args.save_each,
+            file_tag="top",
         )
         render_cluster(
             cluster_id=c,
@@ -320,7 +322,7 @@ def main() -> None:
             centroids=centroids,
             image_to_shard=image_to_shard,
             patch_mmaps=patch_mmaps,
-            out_dir=out_dir / "least_similar",
+            out_dir=out_dir,
             metric=args.metric,
             grid_h=grid_h,
             grid_w=grid_w,
@@ -328,6 +330,7 @@ def main() -> None:
             collage_cols=args.collage_cols,
             alpha=args.overlay_alpha,
             save_each=args.save_each,
+            file_tag="bottom",
         )
 
     print(f"[done] saved to {out_dir}")

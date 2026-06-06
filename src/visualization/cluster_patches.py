@@ -409,6 +409,7 @@ def render_cluster(
     collage_cols: int,
     alpha: float,
     save_each: bool,
+    file_tag: str | None = None,
 ) -> None:
     cluster_dir = out_dir / f"cluster_{cluster_id:04d}"
     cluster_dir.mkdir(parents=True, exist_ok=True)
@@ -445,6 +446,8 @@ def render_cluster(
 
         if save_each:
             stem = f"rank_{item.rank:03d}_img_{item.image_index:06d}_patch_{item.patch_index:04d}_score_{item.score:.4f}"
+            if file_tag:
+                stem = f"{file_tag}_{stem}"
             boxed.save(cluster_dir / f"{stem}_image.jpg", quality=95)
             crop.save(cluster_dir / f"{stem}_crop.jpg", quality=95)
             if overlay is not None:
@@ -452,9 +455,11 @@ def render_cluster(
 
         rows.append(item.__dict__)
 
-    write_jsonl(cluster_dir / "topk_meta.jsonl", rows)
-    save_collage(pair_tiles, cluster_dir / f"cluster_{cluster_id:04d}_top{len(pair_tiles)}_image_crop.jpg", cols=collage_cols)
-    save_collage(attention_tiles, cluster_dir / f"cluster_{cluster_id:04d}_top{len(attention_tiles)}_attention.jpg", cols=collage_cols)
+    meta_name = "topk_meta.jsonl" if file_tag is None else f"{file_tag}_meta.jsonl"
+    collage_tag = "top" if file_tag is None else file_tag
+    write_jsonl(cluster_dir / meta_name, rows)
+    save_collage(pair_tiles, cluster_dir / f"cluster_{cluster_id:04d}_{collage_tag}{len(pair_tiles)}_image_crop.jpg", cols=collage_cols)
+    save_collage(attention_tiles, cluster_dir / f"cluster_{cluster_id:04d}_{collage_tag}{len(attention_tiles)}_attention.jpg", cols=collage_cols)
 
 
 def main() -> None:
