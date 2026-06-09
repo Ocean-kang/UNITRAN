@@ -213,7 +213,7 @@ def mine_center_top_bottom_from_saved_distance(
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Visualize closest and farthest assigned patch tokens for each cluster center.")
-    parser.add_argument("--feature_dir", type=str, default="feature/coco2014_dinov2_vitb14_448")
+    parser.add_argument("--feature_dir", type=str, default="feature/coco2014_dinov2_vitb14_reg_448")
     parser.add_argument("--k", type=int, default=1024)
     parser.add_argument("--topk", type=int, default=20)
     parser.add_argument("--clusters", type=str, default="all", help="all, one id like 17, comma list 1,2,3, or range 0-31")

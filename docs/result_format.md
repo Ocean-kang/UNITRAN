@@ -3,7 +3,7 @@
 ## DINOv2 feature output
 
 ```text
-feature/coco2014_dinov2_vitb14_448/
+feature/coco2014_dinov2_vitb14_reg_448/
 ├── meta.json
 ├── images.jsonl
 ├── patch_tokens/
@@ -14,7 +14,7 @@ feature/coco2014_dinov2_vitb14_448/
 ## Local cluster output
 
 ```text
-feature/coco2014_dinov2_vitb14_448_local_k20/
+feature/coco2014_dinov2_vitb14_reg_448_local_k20/
 ├── local_centers.pt
 ├── local_assignments.pt
 ├── local_center_weights.pt

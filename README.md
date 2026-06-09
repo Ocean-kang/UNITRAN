@@ -65,6 +65,13 @@ UNITRAN/
 └── docs/
 ```
 
+路径约定：
+
+```text
+feature/   保存可复用中间特征，例如 patch tokens、local centers、eval prototypes
+outputs/   保存实验结果，例如 reports、visualizations、checkpoints、metrics
+```
+
 核心变化：旧的 `tools/` 和多层 `scripts/*/*.sh` 已移除；主流程统一改为：
 
 ```bash
@@ -121,7 +128,7 @@ data/mscoco14/train2014 或 config 中指定的 image_dir
 主要输出：
 
 ```text
-feature/coco2014_dinov2_vitb14_448/
+feature/coco2014_dinov2_vitb14_reg_448/
 ├── meta.json
 ├── images.jsonl
 ├── patch_tokens/
@@ -144,13 +151,13 @@ bash scripts/run_2_global_cluster.sh
 主要输入：
 
 ```text
-feature/coco2014_dinov2_vitb14_448/patch_tokens/
+feature/coco2014_dinov2_vitb14_reg_448/patch_tokens/
 ```
 
 主要输出：
 
 ```text
-feature/coco2014_dinov2_vitb14_448/
+feature/coco2014_dinov2_vitb14_reg_448/
 ├── kmeans/
 │   ├── centroids_k1024_fp32.npy
 │   ├── centroids_k1024_fp16.npy
@@ -177,13 +184,13 @@ bash scripts/run_2_local_cluster.sh
 主要输入：
 
 ```text
-feature/coco2014_dinov2_vitb14_448/patch_tokens/
+feature/coco2014_dinov2_vitb14_reg_448/patch_tokens/
 ```
 
 主要输出：
 
 ```text
-feature/coco2014_dinov2_vitb14_448_local_k20/
+feature/coco2014_dinov2_vitb14_reg_448_local_k20/
 ├── local_centers.pt
 ├── local_assignments.pt
 ├── local_center_weights.pt
@@ -373,4 +380,5 @@ docs/experiment_pipeline.md
 docs/result_format.md
 docs/known_issues.md
 docs/refactor_summary.md
+docs/legacy.md
 ```

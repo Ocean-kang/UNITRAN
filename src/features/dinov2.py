@@ -392,7 +392,7 @@ def main() -> None:
     parser.add_argument("--split", type=str, default="train2014", help="COCO split, e.g. train2014, val2014, train2017, val2017")
     parser.add_argument("--ann_path", type=str, default=None, help="Optional captions_<split>.json / instances_<split>.json")
     parser.add_argument("--image_dir", type=str, default=None, help="Optional image dir, e.g. data/mscoco14/train2014 or data/mscoco17/train2017")
-    parser.add_argument("--out_dir", type=str, default="feature/coco2014_dinov2_vitb14_448")
+    parser.add_argument("--out_dir", type=str, default="feature/coco2014_dinov2_vitb14_reg_448")
     parser.add_argument("--model", type=str, default="dinov2_vitb14", choices=sorted(MODEL_DIMS.keys()))
     parser.add_argument("--image_size", type=int, default=448)
     parser.add_argument("--patch_size", type=int, default=14)

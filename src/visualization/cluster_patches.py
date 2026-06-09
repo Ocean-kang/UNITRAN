@@ -5,7 +5,7 @@ Visualize top-k patch tokens for each KMeans cluster.
 This script uses files produced by `experiments/extract_dinov2_features.py` and
 `python -m src.cluster patch-global`:
 
-feature/coco2014_dinov2_vitb14_448/
+feature/coco2014_dinov2_vitb14_reg_448/
   images.jsonl
   patch_tokens/
     shard_000_fp16.mmap
@@ -464,7 +464,7 @@ def render_cluster(
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Visualize top-k patch tokens for each DINOv2 patch cluster.")
-    parser.add_argument("--feature_dir", type=str, default="feature/coco2014_dinov2_vitb14_448")
+    parser.add_argument("--feature_dir", type=str, default="feature/coco2014_dinov2_vitb14_reg_448")
     parser.add_argument("--k", type=int, default=1024)
     parser.add_argument("--topk", type=int, default=50)
     parser.add_argument("--clusters", type=str, default="all", help="all, one id like 17, comma list 1,2,3, or range 0-31")

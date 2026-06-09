@@ -4,7 +4,7 @@ Build per-image local KMeans centers from extracted DINOv2 COCO patch tokens.
 
 Input expected from the DINOv2 extraction step:
 
-feature/coco2014_dinov2_vitb14_448/
+feature/coco2014_dinov2_vitb14_reg_448/
   images.jsonl
   meta.json
   patch_tokens_shape.json
@@ -18,7 +18,7 @@ patch_tokens now stores local centers per image. The script also saves
 assignments and local-center weights so that downstream density analysis can
 account for how many raw patches each center represents:
 
-feature/coco2014_dinov2_vitb14_448_local_k20/
+feature/coco2014_dinov2_vitb14_reg_448_local_k20/
   images.jsonl
   image_ids.json
   meta.json
@@ -494,7 +494,7 @@ def build_local_centers(args: argparse.Namespace) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Build per-image local KMeans centers from COCO DINOv2 patch tokens.")
-    parser.add_argument("--feature_dir", type=str, default="feature/coco2014_dinov2_vitb14_448")
+    parser.add_argument("--feature_dir", type=str, default="feature/coco2014_dinov2_vitb14_reg_448")
     parser.add_argument("--out_dir", type=str, default=None)
     parser.add_argument("--local_k", type=int, default=20, help="Number of local centers kept for each image.")
     parser.add_argument("--local_iters", type=int, default=10, help="KMeans iterations inside each image.")

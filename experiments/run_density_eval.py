@@ -24,7 +24,7 @@ def _module(cfg: dict) -> str:
 
 
 def _sample_args(cfg: dict, out_dir: str | None, local: bool) -> dict:
-    default_feature = "feature/coco2014_dinov2_vitb14_448_local_k20" if local else "feature/coco2014_dinov2_vitb14_448"
+    default_feature = "feature/coco2014_dinov2_vitb14_reg_448_local_k20" if local else "feature/coco2014_dinov2_vitb14_reg_448"
     sample_path = first_existing(cfg, ["sample.out_jsonl", "evaluation.sample_jsonl"], None)
     if sample_path is None and out_dir:
         n = first_existing(cfg, ["data.num_images", "num_images"], 1000)
@@ -43,7 +43,7 @@ def _sample_args(cfg: dict, out_dir: str | None, local: bool) -> dict:
 
 
 def _feature_args(cfg: dict, out_dir: str | None, local: bool) -> dict:
-    default_feature = "feature/coco2014_dinov2_vitb14_448_local_k20" if local else "feature/coco2014_dinov2_vitb14_448"
+    default_feature = "feature/coco2014_dinov2_vitb14_reg_448_local_k20" if local else "feature/coco2014_dinov2_vitb14_reg_448"
     sample_path = first_existing(cfg, ["evaluation.sample_jsonl", "sample.out_jsonl"], None)
     if sample_path is None and out_dir:
         n = first_existing(cfg, ["data.num_images", "num_images"], 1000)

@@ -86,7 +86,7 @@ def build_match_rows(sim: np.ndarray, matched_large: np.ndarray) -> List[Dict]:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Match high-K KMeans centroids to low-K centroids by cosine similarity.")
-    parser.add_argument("--feature_dir", type=str, default="feature/coco2014_dinov2_vitb14_448")
+    parser.add_argument("--feature_dir", type=str, default="feature/coco2014_dinov2_vitb14_reg_448")
     parser.add_argument("--small_k", type=int, default=512)
     parser.add_argument("--large_k", type=int, default=4096)
     parser.add_argument("--small_centroids", type=str, default=None)

@@ -4,7 +4,7 @@ Streaming full-batch KMeans for DINOv2 COCO patch tokens.
 
 Input expected from the previous feature extraction step:
 
-feature/coco2014_dinov2_vitb14_448/
+feature/coco2014_dinov2_vitb14_reg_448/
   images.jsonl
   meta.json
   patch_tokens_shape.json
@@ -515,7 +515,7 @@ def run_assignment(args: argparse.Namespace, shards: Sequence[ShardInfo], centro
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Streaming full-batch KMeans for COCO DINOv2 patch tokens.")
-    parser.add_argument("--feature_dir", type=str, default="feature/coco2014_dinov2_vitb14_448")
+    parser.add_argument("--feature_dir", type=str, default="feature/coco2014_dinov2_vitb14_reg_448")
     parser.add_argument("--k", type=int, default=1024)
     parser.add_argument("--num_iters", type=int, default=20)
     parser.add_argument("--metric", type=str, default="cosine", choices=["cosine", "l2"])
