@@ -1,10 +1,10 @@
 experiment:
-  name: local_cluster_k20
+  name: local_cluster_k20_reg
   seed: 1234
   output_dir: feature/coco2014_dinov2_vitb14_reg_448_local_k20
 
 vision:
-  feature_dir: feature/coco2014_dinov2_vitb14_reg_448_local_k20
+  feature_dir: feature/coco2014_dinov2_vitb14_reg_448
 
 cluster:
   local_k: 20

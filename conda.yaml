@@ -17,3 +17,6 @@ dependencies:
       - fairscale
       - tiktoken
       - sentence_transformers
+      - transformers
+      - accelerate
+      - safetensors

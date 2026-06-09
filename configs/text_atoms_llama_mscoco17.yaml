@@ -12,14 +12,19 @@ text:
   num_atoms: 20
 
 llm:
-  llama_root: external/llama
-  ckpt_dir: ./Meta-Llama-3-8B-Instruct
-  tokenizer_path: ./Meta-Llama-3-8B-Instruct/tokenizer.model
+  # HuggingFace-format Llama3 weights, e.g. directory containing config.json/tokenizer.json/*.safetensors.
+  backend: hf
+  ckpt_dir: ./Meta-Llama-3-8B-Instruct-HF
+  tokenizer_path: null
   max_seq_len: 2048
   max_batch_size: 4
   max_gen_len: 512
   temperature: 0.2
   top_p: 0.9
+  torch_dtype: bf16
+  device_map: auto
+  local_files_only: true
+  trust_remote_code: false
 
 runtime:
   resume: true

@@ -21,6 +21,7 @@ def main() -> None:
     mapping = {
         "sample_jsonl": first_existing(cfg, ["text.sample_jsonl", "sample_jsonl"], None),
         "out_jsonl": first_existing(cfg, ["text.out_jsonl", "out_jsonl"], None),
+        "backend": first_existing(cfg, ["llm.backend", "backend"], "auto"),
         "llama_root": first_existing(cfg, ["llm.llama_root", "llama_root"], "external/llama"),
         "ckpt_dir": first_existing(cfg, ["llm.ckpt_dir", "ckpt_dir"], None),
         "tokenizer_path": first_existing(cfg, ["llm.tokenizer_path", "tokenizer_path"], None),
@@ -33,8 +34,14 @@ def main() -> None:
         "num_atoms": first_existing(cfg, ["text.num_atoms", "num_atoms"], 0),
         "resume": first_existing(cfg, ["runtime.resume", "resume"], False),
         "limit": first_existing(cfg, ["data.limit", "limit"], 0),
+        "torch_dtype": first_existing(cfg, ["llm.torch_dtype", "torch_dtype"], "bf16"),
+        "device_map": first_existing(cfg, ["llm.device_map", "device_map"], "auto"),
+        "local_files_only": first_existing(cfg, ["llm.local_files_only", "local_files_only"], True),
+        "trust_remote_code": first_existing(cfg, ["llm.trust_remote_code", "trust_remote_code"], False),
     }
-    missing = [k for k in ("sample_jsonl", "out_jsonl", "ckpt_dir", "tokenizer_path") if mapping[k] in (None, "")]
+    missing = [k for k in ("sample_jsonl", "out_jsonl", "ckpt_dir") if mapping[k] in (None, "")]
+    if mapping.get("backend") == "meta" and mapping.get("tokenizer_path") in (None, ""):
+        missing.append("tokenizer_path")
     if missing:
         raise SystemExit(f"Missing required config keys for text atoms: {', '.join(missing)}")
     call_main("src.features.text_atoms", cli_args(mapping))
