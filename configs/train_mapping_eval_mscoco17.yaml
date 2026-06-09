@@ -1,0 +1,49 @@
+experiment:
+  name: train_mapping_vision_to_text_eval_mscoco17
+  seed: 0
+  output_dir: outputs/mapping_vision_to_text_eval_mscoco17
+
+data:
+  embedding_dir: ./feature
+  eval_path: feature/eval/mscoco2017/mscoco2017_eval_prototypes.pt
+  source_key: vision_feats
+  target_key: text_feats
+
+mapping:
+  method: vec2vec
+  source: vision
+  target: text
+
+training:
+  device: cuda
+  train_holdout: 0
+
+  # mini_vec2vec params
+  num_anchor_runs: 30
+  num_clusters: 20
+  qap_runs: 30
+  anchor_subsample: 10000
+  initial_k: 50
+  refine_iters: 100
+  refine_sample: 10000
+  refine_k: 50
+  refine2_clusters: 500
+  alpha: 0.5
+
+  # vec2vec params
+  epochs: 20
+  steps_per_epoch: 0
+  batch_size: 256
+  latent_dim: 768
+  hidden_dim: 1024
+  depth: 3
+  discriminator_dim: 1024
+  discriminator_depth: 3
+  lr: 0.0001
+  discriminator_lr: 0.0001
+  weight_decay: 0.0
+  max_grad_norm: 1.0
+  lambda_rec: 5.0
+  lambda_cc: 5.0
+  lambda_vsp: 1.0
+  lambda_adv: 1.0
