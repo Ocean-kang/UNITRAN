@@ -68,8 +68,13 @@ UNITRAN/
 路径约定：
 
 ```text
-feature/   保存可复用中间特征，例如 patch tokens、local centers、eval prototypes
-outputs/   保存实验结果，例如 reports、visualizations、checkpoints、metrics
+feature/vision 或 feature/coco*_dinov2_*  保存 DINOv2 patch tokens / local centers
+feature/text/                          保存 LLM text atoms 等可复用文本中间结果
+feature/density/                       保存 density eval 生成的 .pt feature bank 和 sample jsonl
+feature/eval/                          保存 eval prototypes
+outputs/density/                       保存 density report 和 resolved config
+outputs/visualize/                     保存可视化图片
+outputs/mapping/                       保存 mapping checkpoints / metrics
 ```
 
 核心变化：旧的 `tools/` 和多层 `scripts/*/*.sh` 已移除；主流程统一改为：
@@ -104,8 +109,10 @@ python -m compileall -q src experiments
 python experiments/extract_dinov2_features.py --help
 python experiments/run_global_patch_cluster.py --help
 python experiments/run_local_patch_cluster.py --help
+python experiments/run_text_atoms.py --help
 python experiments/run_density_eval.py --help
 python experiments/run_visualize_cluster.py --help
+python experiments/extract_eval_prototypes.py --help
 python experiments/train_mapping.py --help
 ```
 
@@ -214,16 +221,16 @@ bash scripts/run_3_text_atoms.sh
 主要输入：
 
 ```text
-outputs/local_density_n1000_k20/sample_1000.jsonl
+feature/density/coco2014_n1000_k20/sample_1000.jsonl
 ```
 
 主要输出：
 
 ```text
-outputs/text_atoms_llama_k20/text_atoms.jsonl
+feature/text/coco2014_n1000_k20/text_atoms.jsonl
 ```
 
-说明：Llama 只负责提前生成 text atoms；density evaluation 不默认强依赖 Llama，只读取已经存在的 `recaption_jsonl`。
+说明：Llama 只负责提前生成 text atoms；density evaluation 不默认强依赖 Llama，只读取已经存在的 `recaption_jsonl`。`text_atoms.jsonl` 会作为后续可复用文本中间特征保存在 `feature/text/`，而不是 `outputs/`。
 
 ### Step 4: density evaluation
 
@@ -244,15 +251,20 @@ report    只计算 metrics
 all       依次执行 sample -> features -> report
 ```
 
-主要输出：
+主要输出分两类：
 
 ```text
-outputs/local_density_n1000_k20/
+feature/density/coco2014_n1000_k20/
 ├── resolved_config.yaml
 ├── sample_1000.jsonl
+├── local_density_eval_original.pt
+├── local_density_eval_expanded.pt
 ├── vision_local_centers.pt
 ├── text_original_exact.pt
-├── text_expanded_exact.pt
+└── text_expanded_exact.pt
+
+outputs/density/coco2014_n1000_k20/
+├── resolved_config.yaml
 └── local_density_report.json
 ```
 
@@ -285,12 +297,42 @@ embedding_2d
 
 `cluster_extremes` 用于查看每个全局 cluster center 的 most/least assigned patches。输出中每组最多保留一张图一个 patch，避免 top-k 被同一张图重复占满；主图为 `image+crop` 拼图，attention map 另存为独立拼图，并额外写出 `cluster_stats.jsonl` 记录 cluster size、similarity min/mean/max 和 distance min/mean/max。
 
-### Step 6: mapping training
+### Step 6: eval prototypes
+
+配置文件：`configs/eval_prototypes_mscoco14.yaml` 或 `configs/eval_prototypes_mscoco17.yaml`
+
+```bash
+python experiments/extract_eval_prototypes.py --config configs/eval_prototypes_mscoco14.yaml
+python experiments/extract_eval_prototypes.py --config configs/eval_prototypes_mscoco17.yaml
+```
+
+主要输出：
+
+```text
+feature/eval/mscoco2014/mscoco2014_eval_prototypes.pt
+feature/eval/mscoco2017/mscoco2017_eval_prototypes.pt
+```
+
+这些 prototype 用于后续 mapping/eval 读取，不放入 `outputs/`。
+
+### Step 7: mapping training
 
 配置文件：`configs/train_mapping.yaml`
 
 ```bash
 python experiments/train_mapping.py --config configs/train_mapping.yaml
+```
+
+默认训练输入：
+
+```text
+feature/density/coco2014_n1000_k20/local_density_eval_expanded.pt
+```
+
+默认训练输出：
+
+```text
+outputs/mapping/coco2014_n1000_k20/
 ```
 
 `mapping.method` 用于切换训练方法：
@@ -380,5 +422,4 @@ docs/experiment_pipeline.md
 docs/result_format.md
 docs/known_issues.md
 docs/refactor_summary.md
-docs/legacy.md
 ```

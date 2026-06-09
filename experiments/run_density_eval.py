@@ -2,6 +2,10 @@
 """Config-driven text/vision density evaluation.
 
 Use evaluation.kind: local for local-center vs text atoms, or patch for raw patch-token density.
+
+Path policy:
+  sample/features -> feature.out_dir      (reusable intermediate feature banks)
+  report          -> experiment.output_dir (reports and resolved configs)
 """
 
 from __future__ import annotations
@@ -23,12 +27,21 @@ def _module(cfg: dict) -> str:
     raise SystemExit(f"Unknown evaluation.kind={kind!r}. Use 'local' or 'patch'.")
 
 
-def _sample_args(cfg: dict, out_dir: str | None, local: bool) -> dict:
+def _experiment_out_dir(cfg: dict) -> str | None:
+    return infer_output_dir(cfg, "evaluation.out_dir")
+
+
+def _feature_out_dir(cfg: dict, local: bool) -> str:
+    default_dir = "feature/density/coco2014_n1000_k20" if local else "feature/density/coco2014_patch"
+    return first_existing(cfg, ["feature.out_dir", "feature.output_dir", "density.feature_dir"], default_dir)
+
+
+def _sample_args(cfg: dict, feature_dir: str | None, local: bool) -> dict:
     default_feature = "feature/coco2014_dinov2_vitb14_reg_448_local_k20" if local else "feature/coco2014_dinov2_vitb14_reg_448"
     sample_path = first_existing(cfg, ["sample.out_jsonl", "evaluation.sample_jsonl"], None)
-    if sample_path is None and out_dir:
+    if sample_path is None and feature_dir:
         n = first_existing(cfg, ["data.num_images", "num_images"], 1000)
-        sample_path = f"{out_dir}/sample_{n}.jsonl"
+        sample_path = f"{feature_dir}/sample_{n}.jsonl"
     return {
         "coco_root": first_existing(cfg, ["data.coco_root", "coco_root"], "data/mscoco14"),
         "split": first_existing(cfg, ["data.split", "split"], "train2014"),
@@ -42,12 +55,12 @@ def _sample_args(cfg: dict, out_dir: str | None, local: bool) -> dict:
     }
 
 
-def _feature_args(cfg: dict, out_dir: str | None, local: bool) -> dict:
+def _feature_args(cfg: dict, feature_dir: str | None, local: bool) -> dict:
     default_feature = "feature/coco2014_dinov2_vitb14_reg_448_local_k20" if local else "feature/coco2014_dinov2_vitb14_reg_448"
     sample_path = first_existing(cfg, ["evaluation.sample_jsonl", "sample.out_jsonl"], None)
-    if sample_path is None and out_dir:
+    if sample_path is None and feature_dir:
         n = first_existing(cfg, ["data.num_images", "num_images"], 1000)
-        sample_path = f"{out_dir}/sample_{n}.jsonl"
+        sample_path = f"{feature_dir}/sample_{n}.jsonl"
     common = {
         "sample_jsonl": sample_path,
         "recaption_jsonl": first_existing(cfg, ["text.recaption_jsonl", "recaption_jsonl"], None),
@@ -55,7 +68,7 @@ def _feature_args(cfg: dict, out_dir: str | None, local: bool) -> dict:
         "text_batch_size": first_existing(cfg, ["runtime.text_batch_size", "text_batch_size"], 128),
         "device": first_existing(cfg, ["runtime.device", "device"], "cuda"),
         "seed": first_existing(cfg, ["experiment.seed", "seed"], 0),
-        "out_dir": out_dir or ("outputs/local_density_eval" if local else "outputs/text_density_eval"),
+        "out_dir": feature_dir or ("feature/density/coco2014_n1000_k20" if local else "feature/density/coco2014_patch"),
     }
     if local:
         common.update({
@@ -70,9 +83,10 @@ def _feature_args(cfg: dict, out_dir: str | None, local: bool) -> dict:
     return common
 
 
-def _report_args(cfg: dict, out_dir: str | None) -> dict:
+def _report_args(cfg: dict, feature_dir: str | None, report_dir: str | None) -> dict:
     return {
-        "out_dir": out_dir or first_existing(cfg, ["evaluation.out_dir"], "outputs/local_density_eval"),
+        "feature_dir": feature_dir,
+        "out_dir": report_dir or first_existing(cfg, ["evaluation.out_dir"], "outputs/density/coco2014_n1000_k20"),
         "max_points": first_existing(cfg, ["evaluation.max_points", "max_points"], 20000),
         "knn_k": first_existing(cfg, ["evaluation.knn_k", "knn_k"], 5),
         "sw_proj": first_existing(cfg, ["evaluation.sw_proj", "sw_proj"], 128),
@@ -85,19 +99,25 @@ def main() -> None:
     parser.add_argument("--stage", choices=["sample", "features", "report", "all"], default="all")
     args = parser.parse_args()
     cfg = load_config(args.config)
-    out_dir = infer_output_dir(cfg, "evaluation.out_dir")
-    save_resolved_config(cfg, out_dir)
 
     module = _module(cfg)
     local = module.endswith("local_density")
+    feature_dir = _feature_out_dir(cfg, local)
+    report_dir = _experiment_out_dir(cfg)
+
+    # Save the resolved config in both places when feature/report outputs are split.
+    save_resolved_config(cfg, report_dir)
+    if feature_dir and feature_dir != report_dir:
+        save_resolved_config(cfg, feature_dir)
+
     stages = ["sample", "features", "report"] if args.stage == "all" else [args.stage]
     for stage in stages:
         if stage == "sample":
-            mapping = _sample_args(cfg, out_dir, local)
+            mapping = _sample_args(cfg, feature_dir, local)
         elif stage == "features":
-            mapping = _feature_args(cfg, out_dir, local)
+            mapping = _feature_args(cfg, feature_dir, local)
         else:
-            mapping = _report_args(cfg, out_dir)
+            mapping = _report_args(cfg, feature_dir, report_dir)
         call_main(module, [stage, *cli_args(mapping)])
 
 

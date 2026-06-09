@@ -419,13 +419,15 @@ def percent_change(new: float, old: float, lower_is_better: bool) -> float:
 
 
 def stage_report(args: argparse.Namespace) -> None:
+    feature_dir = Path(args.feature_dir) if getattr(args, "feature_dir", None) else Path(args.out_dir)
     out_dir = Path(args.out_dir)
-    vision = safe_load_tensor(out_dir / "vision_patch_sample.pt", "vision_feats")
-    orig = safe_load_tensor(out_dir / "text_original.pt", "text_feats")
-    exp = safe_load_tensor(out_dir / "text_expanded.pt", "text_feats")
+    vision = safe_load_tensor(feature_dir / "vision_patch_sample.pt", "vision_feats")
+    orig = safe_load_tensor(feature_dir / "text_original.pt", "text_feats")
+    exp = safe_load_tensor(feature_dir / "text_expanded.pt", "text_feats")
     m_orig = metrics(vision, orig, args, 0)
     m_exp = metrics(vision, exp, args, 1)
     summary = {
+        "feature_dir": str(feature_dir),
         "original": m_orig,
         "expanded": m_exp,
         "improvement_percent": {
@@ -442,6 +444,7 @@ def stage_report(args: argparse.Namespace) -> None:
     }
     write_json(out_dir / "density_report.json", summary)
     print(json.dumps(summary, indent=2, ensure_ascii=False))
+    print(f"[load] {feature_dir}")
     print(f"[save] {out_dir / 'density_report.json'}")
 
 
@@ -472,7 +475,8 @@ def main() -> None:
     p.add_argument("--out_dir", default="outputs/text_density_eval", type=str)
 
     p = sub.add_parser("report")
-    p.add_argument("--out_dir", default="outputs/text_density_eval", type=str)
+    p.add_argument("--feature_dir", default="feature/density/coco2014_patch", type=str)
+    p.add_argument("--out_dir", default="outputs/density/coco2014_patch", type=str)
     p.add_argument("--max_points", default=20000, type=int)
     p.add_argument("--knn_k", default=5, type=int)
     p.add_argument("--sw_proj", default=128, type=int)

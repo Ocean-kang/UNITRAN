@@ -1,24 +1,20 @@
 experiment:
   name: train_mapping_vision_to_text_eval_mscoco17
   seed: 0
-  output_dir: outputs/mapping/vision_to_text_eval_mscoco17
-
+  output_dir: outputs/mapping/coco2017_n1000_k20_eval_mscoco17
 data:
-  embedding_dir: ./feature
+  embedding_dir: feature/density/coco2017_n1000_k20
   eval_path: feature/eval/mscoco2017/mscoco2017_eval_prototypes.pt
   source_key: vision_feats
   target_key: text_feats
-
+  train_path: feature/density/coco2017_n1000_k20/local_density_eval_expanded.pt
 mapping:
   method: vec2vec
   source: vision
   target: text
-
 training:
   device: cuda
   train_holdout: 0
-
-  # mini_vec2vec params
   num_anchor_runs: 30
   num_clusters: 20
   qap_runs: 30
@@ -29,8 +25,6 @@ training:
   refine_k: 50
   refine2_clusters: 500
   alpha: 0.5
-
-  # vec2vec params
   epochs: 20
   steps_per_epoch: 0
   batch_size: 256

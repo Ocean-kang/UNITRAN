@@ -248,13 +248,15 @@ def safe_load_tensor(path: Path, key: str) -> torch.Tensor:
 
 
 def stage_report(args: argparse.Namespace) -> None:
+    feature_dir = Path(args.feature_dir) if getattr(args, "feature_dir", None) else Path(args.out_dir)
     out_dir = Path(args.out_dir)
-    vision = safe_load_tensor(out_dir / "vision_local_centers.pt", "vision_feats")
-    orig = safe_load_tensor(out_dir / "text_original_exact.pt", "text_feats")
-    exp = safe_load_tensor(out_dir / "text_expanded_exact.pt", "text_feats")
+    vision = safe_load_tensor(feature_dir / "vision_local_centers.pt", "vision_feats")
+    orig = safe_load_tensor(feature_dir / "text_original_exact.pt", "text_feats")
+    exp = safe_load_tensor(feature_dir / "text_expanded_exact.pt", "text_feats")
     m_orig = metrics(vision, orig, args, 0)
     m_exp = metrics(vision, exp, args, 1)
     summary = {
+        "feature_dir": str(feature_dir),
         "original": m_orig,
         "expanded": m_exp,
         "improvement_percent": {
@@ -271,6 +273,7 @@ def stage_report(args: argparse.Namespace) -> None:
     }
     write_json(out_dir / "local_density_report.json", summary)
     print(json.dumps(summary, indent=2, ensure_ascii=False))
+    print(f"[load] {feature_dir}")
     print(f"[save] {out_dir / 'local_density_report.json'}")
 
 
@@ -287,20 +290,21 @@ def main() -> None:
     p.add_argument("--max_captions", default=5, type=int)
     p.add_argument("--sample_mode", choices=["first", "random"], default="first")
     p.add_argument("--seed", default=0, type=int)
-    p.add_argument("--out_jsonl", default="outputs/local_density_eval/sample_1000.jsonl", type=str)
+    p.add_argument("--out_jsonl", default="feature/density/coco2014_n1000_k20/sample_1000.jsonl", type=str)
 
     p = sub.add_parser("features")
-    p.add_argument("--sample_jsonl", default="outputs/local_density_eval/sample_1000.jsonl", type=str)
+    p.add_argument("--sample_jsonl", default="feature/density/coco2014_n1000_k20/sample_1000.jsonl", type=str)
     p.add_argument("--recaption_jsonl", default=None, type=str)
     p.add_argument("--local_feature_dir", default="feature/coco2014_dinov2_vitb14_reg_448_local_k20", type=str)
     p.add_argument("--atoms_per_image", default=0, type=int, help="0 means infer from local-center feature shape.")
     p.add_argument("--text_model", default="sentence-transformers/all-mpnet-base-v2", type=str)
     p.add_argument("--text_batch_size", default=128, type=int)
     p.add_argument("--device", default="cuda", type=str)
-    p.add_argument("--out_dir", default="outputs/local_density_eval", type=str)
+    p.add_argument("--out_dir", default="feature/density/coco2014_n1000_k20", type=str)
 
     p = sub.add_parser("report")
-    p.add_argument("--out_dir", default="outputs/local_density_eval", type=str)
+    p.add_argument("--feature_dir", default="feature/density/coco2014_n1000_k20", type=str)
+    p.add_argument("--out_dir", default="outputs/density/coco2014_n1000_k20", type=str)
     p.add_argument("--max_points", default=20000, type=int)
     p.add_argument("--knn_k", default=5, type=int)
     p.add_argument("--sw_proj", default=128, type=int)

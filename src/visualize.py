@@ -17,3 +17,7 @@ def main() -> None:
     import sys
 
     dispatch(sys.argv, COMMANDS, "Usage: python -m src.visualize <command> [args]")
+
+
+if __name__ == "__main__":
+    main()

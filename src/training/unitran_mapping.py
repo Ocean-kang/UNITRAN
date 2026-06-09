@@ -160,16 +160,27 @@ def first_existing_path(paths):
 
 def resolve_data_paths(args):
     embedding_dir = Path(args.embedding_dir)
-    train_path = first_existing_path([
-        args.train_path,
-        embedding_dir / "talk2dino_avg_self_attn_out_80000.pt",
-        embedding_dir / "local_density_eval_expanded.pt",
-        embedding_dir / "local_density_eval_original.pt",
-    ])
-    eval_path = first_existing_path([
-        args.eval_path,
-        embedding_dir / "val_paired_8192.pt",
-    ])
+
+    if args.train_path:
+        train_path = Path(args.train_path)
+        if not train_path.exists():
+            raise FileNotFoundError(f"Configured train_path does not exist: {train_path}")
+    else:
+        train_path = first_existing_path([
+            embedding_dir / "local_density_eval_expanded.pt",
+            embedding_dir / "local_density_eval_original.pt",
+            embedding_dir / "talk2dino_avg_self_attn_out_80000.pt",
+        ])
+
+    if args.eval_path:
+        eval_path = Path(args.eval_path)
+        if not eval_path.exists():
+            raise FileNotFoundError(f"Configured eval_path does not exist: {eval_path}")
+    else:
+        eval_path = first_existing_path([
+            embedding_dir / "val_paired_8192.pt",
+        ])
+
     if train_path is None:
         raise FileNotFoundError(f"Cannot find train embeddings under {embedding_dir}")
     return train_path, eval_path
