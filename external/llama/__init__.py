@@ -2,6 +2,5 @@
 # This software may be used and distributed in accordance with the terms of the Llama 3 Community License Agreement.
 
 from .generation_feat import Llama
-# from .generation import Llama
 from .model import ModelArgs, Transformer
 from .tokenizer import Dialog, Tokenizer

@@ -37,7 +37,7 @@ feature/vision/coco2014_dinov2_vitb14_reg_448_local_k20/
   local_center_weights.pt
 
 The output directory can be passed directly to experiments/run_density_eval.py
-or to src.clustering.stream_kmeans for second-stage global KMeans.
+or to experiments/run_global_patch_cluster.py for second-stage global KMeans.
 """
 
 from __future__ import annotations
@@ -489,7 +489,7 @@ def build_local_centers(args: argparse.Namespace) -> None:
         write_flat_pt_outputs(out_dir, shards, args.save_dtype)
 
     print(f"[done] elapsed={time.time() - start_time:.1f}s")
-    print(f"[next] python -m src.cluster patch-global --feature_dir {out_dir} --k <GLOBAL_K> --num_iters 20")
+    print(f"[next] run experiments/run_global_patch_cluster.py with feature_dir set to {out_dir}")
 
 
 def main() -> None:

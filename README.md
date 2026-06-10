@@ -1,51 +1,49 @@
 # UNITRAN
 
-**UNITRAN** is a research codebase for building DINOv2 vision features, LLM-generated text atoms, density evaluation features, and unpaired vision-text mapping models.
+**UNITRAN** is a compact research codebase for building DINOv2 vision features, LLM-generated text atoms, density evaluation banks, and unpaired vision-text mapping models.
 
-The repository is organized around config-driven experiment entry points. Core model and experiment logic is kept in `src/`, while runnable workflows are exposed through `experiments/` and `configs/`.
+The maintained workflow is config-driven: use `experiments/*.py` with `configs/*.yaml`. Core implementations live in `src/`; generated features and experiment outputs are kept outside version control.
 
 ## Method Overview
 
-UNITRAN follows a lightweight vision-text distribution alignment workflow:
+UNITRAN follows a lightweight vision-text distribution alignment pipeline:
 
 1. Extract DINOv2 patch tokens from COCO images.
 2. Build global patch clusters or per-image local patch centers.
 3. Generate text atoms from COCO captions with an LLM backend.
 4. Encode original captions and expanded text atoms into text features.
 5. Compare vision/text feature distributions with density metrics.
-6. Train a UNITRAN / vec2vec-style unpaired mapping between feature spaces.
+6. Train a mini-vec2vec / vec2vec-style unpaired mapping between feature spaces.
 
-The code does not change COCO annotations or pretrained model weights. Generated features and experiment outputs are written outside version control.
+The repository does not modify COCO annotations or pretrained model weights.
 
 ## Repository Structure
 
 ```text
-configs/        YAML configs for feature extraction, clustering, text atoms, evaluation, visualization, and mapping
+configs/        Maintained YAML configs for the supported workflows
 experiments/    Recommended runnable Python entry points
 src/            Implementation modules for datasets, features, clustering, evaluation, training, and visualization
-scripts/        Thin shell wrappers for the recommended experiment commands
-external/       Optional external Llama-compatible code
-/docs           Additional notes on workflow, result formats, and known issues
+scripts/        Thin shell wrappers around the recommended experiment commands
+external/       Optional Llama-compatible code used by the text-atom backend
+docs/           Additional workflow notes and output-format descriptions
 ```
 
-Runtime directories are intentionally ignored by git:
+Runtime directories are ignored by git:
 
 ```text
 data/           User-prepared datasets, e.g. MSCOCO2014 / MSCOCO2017
 feature/        Reusable intermediate features: patch tokens, local centers, text embeddings, prototypes
-outputs/        Experiment reports, visualizations, mapping checkpoints, and logs
+outputs/        Experiment reports, visualization images, mapping checkpoints, and logs
 ```
 
 ## Installation
-
-Create the conda environment:
 
 ```bash
 conda env create -f conda.yaml
 conda activate unitran
 ```
 
-Install any extra packages required by your selected backbone or text model, such as `torch`, `torchvision`, `sentence-transformers`, `transformers`, and DINOv2 dependencies, if they are not already available in your environment.
+Install any extra packages required by your selected vision or text backend, such as `torch`, `torchvision`, `sentence-transformers`, `transformers`, and DINOv2 dependencies.
 
 ## Dataset Preparation
 
@@ -65,7 +63,7 @@ data/mscoco17/
 └── panoptic_val2017/
 ```
 
-The default configs use `mscoco14`. To switch a supported workflow to COCO2017, use:
+Most configs default to `mscoco14`. Switch to COCO2017 with:
 
 ```bash
 --set active_dataset=mscoco17
@@ -133,7 +131,7 @@ The default config assumes a local HuggingFace-style Llama directory:
 Meta-Llama-3-8B-Instruct-HF/
 ```
 
-Edit `configs/text_atoms.yaml` if your model path or backend differs.
+Edit `configs/text_atoms.yaml` when your model path or backend differs.
 
 ## Density Evaluation
 
@@ -143,7 +141,7 @@ Build local-center/text feature banks and write density reports:
 python experiments/run_density_eval.py --config configs/density_local.yaml --stage all
 ```
 
-Stages can be run separately:
+Stages can also be run separately:
 
 ```bash
 python experiments/run_density_eval.py --config configs/density_local.yaml --stage sample
@@ -161,6 +159,17 @@ Evaluation reports are written to:
 
 ```text
 outputs/density/coco2014_n1000_k20/
+```
+
+For a different sample size, override both the sample count and output directories:
+
+```bash
+python experiments/run_density_eval.py \
+  --config configs/density_local.yaml \
+  --stage all \
+  --set data.num_images=5000 \
+  --set feature.out_dir=feature/density/coco2014_n5000_k20 \
+  --set experiment.output_dir=outputs/density/coco2014_n5000_k20
 ```
 
 ## Training
@@ -244,7 +253,7 @@ outputs/mapping/    Mapping checkpoints and metrics
 
 ## Scripts
 
-Shell wrappers are provided for the recommended flow:
+Shell wrappers are provided for the maintained flow:
 
 ```bash
 bash scripts/run_1_extract.sh
@@ -263,21 +272,25 @@ bash scripts/smoke_check.sh
 
 ## Common Issues
 
-**Dataset path not found.** Check that COCO files are placed under `data/mscoco14` or `data/mscoco17`, or override paths with `--set`.
+**Where should new results be saved?**  
+Save reusable feature banks under `feature/` and experiment reports, visualizations, logs, or checkpoints under `outputs/`.
 
-**Llama model path not found.** Update `configs/text_atoms.yaml` to match your local model path.
+**How do I switch from COCO2014 to COCO2017?**  
+Use the same maintained config and override `active_dataset`, for example `--set active_dataset=mscoco17`.
 
-**CUDA out of memory during clustering.** Reduce `cluster.chunk_images` or `runtime.chunk_images` in the relevant config.
+**Do I need to regenerate text atoms during every density evaluation?**  
+No. Generate `text_atoms.jsonl` once, then let density evaluation read it from `feature/text/...`.
 
-**Feature and report paths look different.** This is expected: reusable tensors go to `feature/`, while reports, figures, and checkpoints go to `outputs/`.
+**Are distribution metrics enough to prove semantic alignment?**  
+No. MMD, SWD, and coverage-style metrics describe geometric distribution differences. Use them together with retrieval/eval prototypes and visualization.
 
 ## Citation
 
-If you use this repository, please cite the corresponding paper or project once available.
+If this repository is used in a paper, add the project citation here.
 
 ```bibtex
-@misc{unitran2026,
-  title  = {UNITRAN: Unpaired Vision-Text Feature Mapping with Dense Vision and Text Features},
+@misc{unitran,
+  title  = {UNITRAN: Unpaired Vision-Text Distribution Alignment},
   author = {Anonymous},
   year   = {2026}
 }
@@ -285,4 +298,4 @@ If you use this repository, please cite the corresponding paper or project once 
 
 ## Acknowledgement
 
-This project builds on pretrained vision-language and self-supervised vision models, including DINOv2, COCO, HuggingFace Transformers / SentenceTransformers, and Llama-compatible generation code.
+This repository builds on ideas and tooling from DINOv2, MSCOCO, Llama / HuggingFace text generation, sentence-transformers, and vec2vec-style unpaired mapping methods.

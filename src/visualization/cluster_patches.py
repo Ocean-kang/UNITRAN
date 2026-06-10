@@ -3,7 +3,7 @@
 Visualize top-k patch tokens for each KMeans cluster.
 
 This script uses files produced by `experiments/extract_dinov2_features.py` and
-`python -m src.cluster patch-global`:
+`experiments/run_global_patch_cluster.py`:
 
 feature/vision/coco2014_dinov2_vitb14_reg_448/
   images.jsonl
