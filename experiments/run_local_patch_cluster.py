@@ -19,7 +19,7 @@ def main() -> None:
     save_resolved_config(cfg, out_dir)
 
     mapping = {
-        "feature_dir": first_existing(cfg, ["vision.feature_dir", "feature_dir"], "feature/coco2014_dinov2_vitb14_reg_448"),
+        "feature_dir": first_existing(cfg, ["vision.feature_dir", "feature_dir"], "feature/vision/coco2014_dinov2_vitb14_reg_448"),
         "out_dir": out_dir,
         "local_k": first_existing(cfg, ["cluster.local_k", "vision.local_k", "local_k"], 20),
         "local_iters": first_existing(cfg, ["cluster.local_iters", "cluster.num_iters", "local_iters"], 10),

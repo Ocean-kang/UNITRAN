@@ -1,3 +1,4 @@
+# Deprecated: use configs/eval_prototypes.yaml --set active_dataset=mscoco14 instead.
 experiment:
   name: eval_prototypes_mscoco14_val2014
   seed: 0

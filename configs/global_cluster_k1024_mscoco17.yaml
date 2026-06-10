@@ -1,10 +1,11 @@
+# Deprecated: use configs/cluster_global.yaml --set active_dataset=mscoco17 instead.
 experiment:
   name: global_cluster_k1024_mscoco17
   seed: 1234
-  output_dir: feature/coco2017_dinov2_vitb14_reg_448
+  output_dir: feature/vision/coco2017_dinov2_vitb14_reg_448
 
 vision:
-  feature_dir: feature/coco2017_dinov2_vitb14_reg_448
+  feature_dir: feature/vision/coco2017_dinov2_vitb14_reg_448
 
 cluster:
   k: 1024

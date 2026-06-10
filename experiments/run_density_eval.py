@@ -52,7 +52,7 @@ def _density_sample_path(cfg: dict, feature_dir: str | None) -> str | None:
 
 
 def _sample_args(cfg: dict, feature_dir: str | None, local: bool) -> dict:
-    default_feature = "feature/coco2014_dinov2_vitb14_reg_448_local_k20" if local else "feature/coco2014_dinov2_vitb14_reg_448"
+    default_feature = "feature/vision/coco2014_dinov2_vitb14_reg_448_local_k20" if local else "feature/vision/coco2014_dinov2_vitb14_reg_448"
     sample_path = _density_sample_path(cfg, feature_dir)
     return {
         "coco_root": first_existing(cfg, ["data.coco_root", "coco_root"], "data/mscoco14"),
@@ -68,7 +68,7 @@ def _sample_args(cfg: dict, feature_dir: str | None, local: bool) -> dict:
 
 
 def _feature_args(cfg: dict, feature_dir: str | None, local: bool) -> dict:
-    default_feature = "feature/coco2014_dinov2_vitb14_reg_448_local_k20" if local else "feature/coco2014_dinov2_vitb14_reg_448"
+    default_feature = "feature/vision/coco2014_dinov2_vitb14_reg_448_local_k20" if local else "feature/vision/coco2014_dinov2_vitb14_reg_448"
     sample_path = _density_sample_path(cfg, feature_dir)
     common = {
         "sample_jsonl": sample_path,

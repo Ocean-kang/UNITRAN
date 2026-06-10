@@ -1,3 +1,4 @@
+# Deprecated: use configs/density_local.yaml --set data.num_images=5000 --set feature.out_dir=feature/density/coco2014_n5000_k20 --set experiment.output_dir=outputs/density/coco2014_n5000_k20 instead.
 experiment:
   name: local_density_n5000_k20
   seed: 42
@@ -13,7 +14,7 @@ data:
   ann_path: null
   num_images: 5000
 vision:
-  local_feature_dir: feature/coco2014_dinov2_vitb14_reg_448_local_k20
+  local_feature_dir: feature/vision/coco2014_dinov2_vitb14_reg_448_local_k20
 text:
   max_captions: 5
   recaption_jsonl: feature/text/coco2014_n5000_k20/text_atoms.jsonl

@@ -62,7 +62,7 @@ def save_heatmap_image(attention: np.ndarray, image_size: Sequence[int], path: P
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Visualize one image's local-center-to-raw-patch attention maps.")
-    parser.add_argument("--local_feature_dir", type=str, default="feature/coco2014_dinov2_vitb14_reg_448_local_k20")
+    parser.add_argument("--local_feature_dir", type=str, default="feature/vision/coco2014_dinov2_vitb14_reg_448_local_k20")
     parser.add_argument("--raw_feature_dir", type=str, default=None, help="Default: read source_feature_dir from local_feature_dir/meta.json.")
     parser.add_argument("--image_name", type=str, default=None, help="Example: COCO_train2014_000000000009.jpg")
     parser.add_argument("--image_index", type=int, default=None, help="Optional exact image index from images.jsonl.")

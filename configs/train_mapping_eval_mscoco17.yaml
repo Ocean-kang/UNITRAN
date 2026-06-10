@@ -1,3 +1,4 @@
+# Deprecated: use configs/train_mapping_eval.yaml --set active_dataset=mscoco17 instead.
 experiment:
   name: train_mapping_vision_to_text_eval_mscoco17
   seed: 0

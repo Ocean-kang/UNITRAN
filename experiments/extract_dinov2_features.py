@@ -23,7 +23,7 @@ def main() -> None:
         "split": first_existing(cfg, ["data.split", "split"], "train2014"),
         "ann_path": first_existing(cfg, ["data.ann_path", "ann_path"], None),
         "image_dir": first_existing(cfg, ["data.image_dir", "image_dir"], None),
-        "out_dir": out_dir or "feature/coco2014_dinov2_vitb14_reg_448",
+        "out_dir": out_dir or "feature/vision/coco2014_dinov2_vitb14_reg_448",
         "model": first_existing(cfg, ["vision.model", "model"], "dinov2_vitb14"),
         "image_size": first_existing(cfg, ["vision.image_size", "image_size"], 448),
         "patch_size": first_existing(cfg, ["vision.patch_size", "patch_size"], 14),

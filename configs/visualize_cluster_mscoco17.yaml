@@ -1,3 +1,4 @@
+# Deprecated: use configs/visualize_cluster.yaml --set active_dataset=mscoco17 instead.
 experiment:
   name: visualize_cluster_extremes_k1024_mscoco17
   output_dir: outputs/visualize/cluster_extremes_k1024_mscoco17
@@ -13,7 +14,7 @@ visualization:
   save_each: false
 
 vision:
-  feature_dir: feature/coco2017_dinov2_vitb14_reg_448
+  feature_dir: feature/vision/coco2017_dinov2_vitb14_reg_448
 
 cluster:
   k: 1024

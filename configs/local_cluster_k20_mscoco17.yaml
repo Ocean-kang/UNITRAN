@@ -1,10 +1,11 @@
+# Deprecated: use configs/cluster_local.yaml --set active_dataset=mscoco17 instead.
 experiment:
   name: local_cluster_k20_mscoco17
   seed: 1234
-  output_dir: feature/coco2017_dinov2_vitb14_reg_448_local_k20
+  output_dir: feature/vision/coco2017_dinov2_vitb14_reg_448_local_k20
 
 vision:
-  feature_dir: feature/coco2017_dinov2_vitb14_reg_448
+  feature_dir: feature/vision/coco2017_dinov2_vitb14_reg_448
 
 cluster:
   local_k: 20

@@ -1,3 +1,4 @@
+# Deprecated: use configs/density_local.yaml and override data.num_images / feature.out_dir if needed.
 experiment:
   name: local_density_n1000_k20
   seed: 42
@@ -13,7 +14,7 @@ data:
   ann_path: null
   num_images: 1000
 vision:
-  local_feature_dir: feature/coco2014_dinov2_vitb14_reg_448_local_k20
+  local_feature_dir: feature/vision/coco2014_dinov2_vitb14_reg_448_local_k20
 text:
   max_captions: 5
   recaption_jsonl: feature/text/coco2014_n1000_k20/text_atoms.jsonl

@@ -1,3 +1,4 @@
+# Deprecated: use configs/text_atoms.yaml --set active_dataset=mscoco17 instead.
 experiment:
   name: text_atoms_llama_k20_mscoco17
   output_dir: feature/text/coco2017_n1000_k20

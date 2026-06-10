@@ -15,7 +15,7 @@ def main() -> None:
     parser = add_config_arg("Run global streaming KMeans over all DINOv2 patch tokens.")
     args = parser.parse_args()
     cfg = resolve_config(args.config, args.set)
-    feature_dir = first_existing(cfg, ["vision.feature_dir", "feature_dir"], "feature/coco2014_dinov2_vitb14_reg_448")
+    feature_dir = first_existing(cfg, ["vision.feature_dir", "feature_dir"], "feature/vision/coco2014_dinov2_vitb14_reg_448")
     out_dir = infer_output_dir(cfg, "cluster.output_dir", "vision.feature_dir", "feature_dir") or feature_dir
     save_resolved_config(cfg, out_dir)
 

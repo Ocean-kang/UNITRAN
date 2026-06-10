@@ -1,7 +1,8 @@
+# Deprecated: use configs/extract_dinov2.yaml --set active_dataset=mscoco17 instead.
 experiment:
   name: extract_dinov2_vitb14_reg_448_mscoco17
   seed: 0
-  output_dir: feature/coco2017_dinov2_vitb14_reg_448
+  output_dir: feature/vision/coco2017_dinov2_vitb14_reg_448
 
 data:
   coco_root: data/mscoco17

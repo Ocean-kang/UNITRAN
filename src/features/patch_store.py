@@ -227,7 +227,7 @@ def process_one_k(
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Query one image's patch-token KMeans cluster ids.")
-    parser.add_argument("--feature_dir", type=str, default="feature/coco2014_dinov2_vitb14_reg_448")
+    parser.add_argument("--feature_dir", type=str, default="feature/vision/coco2014_dinov2_vitb14_reg_448")
     parser.add_argument("--image_name", type=str, default=None, help="Example: COCO_train2014_000000000009.jpg")
     parser.add_argument("--image_index", type=int, default=None, help="Optional exact image index from images.jsonl.")
     parser.add_argument("--ks", type=str, default="all", help="all, one K like 512, or comma list like 512,1024,2048.")

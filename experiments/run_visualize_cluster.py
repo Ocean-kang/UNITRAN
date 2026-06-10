@@ -21,7 +21,7 @@ MODULES = {
 
 def _cluster_args(cfg: dict, out_dir: str | None) -> dict:
     return {
-        "feature_dir": first_existing(cfg, ["vision.feature_dir", "feature_dir"], "feature/coco2014_dinov2_vitb14_reg_448"),
+        "feature_dir": first_existing(cfg, ["vision.feature_dir", "feature_dir"], "feature/vision/coco2014_dinov2_vitb14_reg_448"),
         "k": first_existing(cfg, ["cluster.k", "k"], 1024),
         "topk": first_existing(cfg, ["visualization.topk", "topk"], 50),
         "clusters": first_existing(cfg, ["visualization.clusters", "clusters"], "all"),
@@ -41,7 +41,7 @@ def _cluster_args(cfg: dict, out_dir: str | None) -> dict:
 
 def _image_local_args(cfg: dict, out_dir: str | None) -> dict:
     return {
-        "local_feature_dir": first_existing(cfg, ["vision.local_feature_dir", "local_feature_dir"], "feature/coco2014_dinov2_vitb14_reg_448_local_k20"),
+        "local_feature_dir": first_existing(cfg, ["vision.local_feature_dir", "local_feature_dir"], "feature/vision/coco2014_dinov2_vitb14_reg_448_local_k20"),
         "raw_feature_dir": first_existing(cfg, ["vision.raw_feature_dir", "raw_feature_dir"], None),
         "image_name": first_existing(cfg, ["visualization.image_name", "image_name"], None),
         "image_index": first_existing(cfg, ["visualization.image_index", "image_index"], None),
@@ -57,7 +57,7 @@ def _image_local_args(cfg: dict, out_dir: str | None) -> dict:
 
 def _image_cls_args(cfg: dict, out_dir: str | None) -> dict:
     return {
-        "feature_dir": first_existing(cfg, ["vision.feature_dir", "feature_dir"], "feature/coco2014_dinov2_vitb14_reg_448"),
+        "feature_dir": first_existing(cfg, ["vision.feature_dir", "feature_dir"], "feature/vision/coco2014_dinov2_vitb14_reg_448"),
         "image_name": first_existing(cfg, ["visualization.image_name", "image_name"], None),
         "image_index": first_existing(cfg, ["visualization.image_index", "image_index"], None),
         "image_root": first_existing(cfg, ["data.image_root", "image_root"], None),

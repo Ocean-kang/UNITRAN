@@ -127,7 +127,7 @@ def save_attention_images(image_path: Path, attention: np.ndarray, out_dir: Path
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Visualize one image's DINOv2 CLS-to-patch self-attention map.")
-    parser.add_argument("--feature_dir", type=str, default="feature/coco2014_dinov2_vitb14_reg_448")
+    parser.add_argument("--feature_dir", type=str, default="feature/vision/coco2014_dinov2_vitb14_reg_448")
     parser.add_argument("--image_name", type=str, default=None, help="Example: COCO_train2014_000000000009.jpg")
     parser.add_argument("--image_index", type=int, default=None, help="Optional exact image index from images.jsonl.")
     parser.add_argument("--image_root", type=str, default=None, help="Optional fallback root for original COCO train2014 images.")
