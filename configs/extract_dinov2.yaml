@@ -1,11 +1,20 @@
+active_dataset: mscoco14
+
+datasets:
+  mscoco14:
+    coco_root: data/mscoco14
+    split: train2014
+    output_dir: feature/vision/coco2014_dinov2_vitb14_reg_448
+  mscoco17:
+    coco_root: data/mscoco17
+    split: train2017
+    output_dir: feature/vision/coco2017_dinov2_vitb14_reg_448
+
 experiment:
-  name: extract_dinov2_vitb14_448
+  name: extract_dinov2_vitb14_reg_448
   seed: 0
-  output_dir: feature/coco2014_dinov2_vitb14_reg_448
 
 data:
-  coco_root: data/mscoco14
-  split: train2014
   ann_path: null
   image_dir: null
   max_images: null

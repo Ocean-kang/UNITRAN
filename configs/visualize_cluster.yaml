@@ -1,6 +1,17 @@
+active_dataset: mscoco14
+
+datasets:
+  mscoco14:
+    feature_dir: feature/vision/coco2014_dinov2_vitb14_reg_448
+    image_root: data/mscoco14/train2014
+    output_dir: outputs/visualize/coco2014_cluster_extremes_k1024
+  mscoco17:
+    feature_dir: feature/vision/coco2017_dinov2_vitb14_reg_448
+    image_root: data/mscoco17/train2017
+    output_dir: outputs/visualize/coco2017_cluster_extremes_k1024
+
 experiment:
   name: visualize_cluster_extremes_k1024
-  output_dir: outputs/visualize/cluster_extremes_k1024
 
 visualization:
   mode: cluster_extremes   # cluster_topk | cluster_extremes | image_cls_attention | image_local_centers | embedding_2d
@@ -12,17 +23,11 @@ visualization:
   overlay_alpha: 0.45
   save_each: false
 
-vision:
-  feature_dir: feature/coco2014_dinov2_vitb14_reg_448
-
 cluster:
   k: 1024
   centroids: null
   cluster_ids: null
   cluster_dist: null
-
-data:
-  image_root: data/mscoco14/train2014
 
 runtime:
   chunk_images: 1024

@@ -1,0 +1,29 @@
+active_dataset: mscoco14
+
+datasets:
+  mscoco14:
+    input_dir: feature/vision/coco2014_dinov2_vitb14_reg_448
+    output_dir: feature/vision/coco2014_dinov2_vitb14_reg_448_local_k20
+  mscoco17:
+    input_dir: feature/vision/coco2017_dinov2_vitb14_reg_448
+    output_dir: feature/vision/coco2017_dinov2_vitb14_reg_448_local_k20
+
+experiment:
+  name: local_cluster_k20
+  seed: 1234
+
+cluster:
+  local_k: 20
+  metric: cosine
+  num_iters: 10
+  chunk_images: 64
+  dtype: float16
+  save_dtype: float16
+  no_save_pt_outputs: false
+
+runtime:
+  device: cuda:0
+  overwrite: false
+
+data:
+  max_images: null

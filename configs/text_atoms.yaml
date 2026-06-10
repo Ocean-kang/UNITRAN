@@ -1,0 +1,41 @@
+active_dataset: mscoco14
+
+datasets:
+  mscoco14:
+    caption_json: data/mscoco14/annotations/captions_train2014.json
+    output_dir: feature/text/coco2014_llama_atoms_k20
+    text:
+      sample_jsonl: feature/density/coco2014_n1000_k20/sample_1000.jsonl
+      out_jsonl: feature/text/coco2014_llama_atoms_k20/text_atoms.jsonl
+  mscoco17:
+    caption_json: data/mscoco17/annotations/captions_train2017.json
+    output_dir: feature/text/coco2017_llama_atoms_k20
+    text:
+      sample_jsonl: feature/density/coco2017_n1000_k20/sample_1000.jsonl
+      out_jsonl: feature/text/coco2017_llama_atoms_k20/text_atoms.jsonl
+
+experiment:
+  name: text_atoms_llama_k20
+
+text:
+  backend: hf
+  model_path: ./Meta-Llama-3-8B-Instruct-HF
+  atoms_per_image: 20
+  max_images: 1000
+  output_name: text_atoms.jsonl
+
+llm:
+  llama_root: external/llama
+  tokenizer_path: null
+  max_seq_len: 2048
+  max_batch_size: 4
+  max_gen_len: 512
+  temperature: 0.2
+  top_p: 0.9
+  torch_dtype: bf16
+  device_map: auto
+  local_files_only: true
+  trust_remote_code: false
+
+runtime:
+  resume: true

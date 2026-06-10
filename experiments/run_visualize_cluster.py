@@ -8,7 +8,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from src.experiment_utils import add_config_arg, call_main, cli_args, first_existing, infer_output_dir, load_config, save_resolved_config
+from src.experiment_utils import add_config_arg, call_main, cli_args, first_existing, infer_output_dir, resolve_config, save_resolved_config
 
 MODULES = {
     "cluster_topk": "src.visualization.cluster_patches",
@@ -92,7 +92,7 @@ def _embedding_args(cfg: dict, out_dir: str | None) -> dict:
 def main() -> None:
     parser = add_config_arg("Run cluster/image/embedding visualization from one config.")
     args = parser.parse_args()
-    cfg = load_config(args.config)
+    cfg = resolve_config(args.config, args.set)
     mode = first_existing(cfg, ["visualization.mode", "mode"], "cluster_topk")
     if mode not in MODULES:
         raise SystemExit(f"Unknown visualization.mode={mode!r}. Available: {', '.join(MODULES)}")

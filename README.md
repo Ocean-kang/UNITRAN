@@ -16,15 +16,16 @@ UNITRAN 是一个面向研究迭代的实验代码仓库，当前目标是研究
 UNITRAN/
 ├── README.md
 ├── conda.yaml
-├── configs/                         # 每个实验的 YAML 配置
+├── configs/                         # 每个功能一个主 YAML，旧 config 暂时保留
 │   ├── extract_dinov2.yaml
-│   ├── global_cluster_k1024.yaml
-│   ├── local_cluster_k20.yaml
-│   ├── text_atoms_llama.yaml
-│   ├── local_density_n1000_k20.yaml
-│   ├── local_density_n5000_k20.yaml
+│   ├── cluster_global.yaml
+│   ├── cluster_local.yaml
+│   ├── text_atoms.yaml
+│   ├── density_local.yaml
 │   ├── visualize_cluster.yaml
-│   └── train_mapping.yaml
+│   ├── eval_prototypes.yaml
+│   ├── train_mapping.yaml
+│   └── train_mapping_eval.yaml
 ├── experiments/                     # 统一实验入口
 │   ├── extract_dinov2_features.py
 │   ├── run_global_patch_cluster.py
@@ -68,7 +69,7 @@ UNITRAN/
 路径约定：
 
 ```text
-feature/vision 或 feature/coco*_dinov2_*  保存 DINOv2 patch tokens / local centers
+feature/vision/                         保存 DINOv2 patch tokens / local centers
 feature/text/                          保存 LLM text atoms 等可复用文本中间结果
 feature/density/                       保存 density eval 生成的 .pt feature bank 和 sample jsonl
 feature/eval/                          保存 eval prototypes
@@ -135,7 +136,7 @@ data/mscoco14/train2014 或 config 中指定的 image_dir
 主要输出：
 
 ```text
-feature/coco2014_dinov2_vitb14_reg_448/
+feature/vision/coco2014_dinov2_vitb14_reg_448/
 ├── meta.json
 ├── images.jsonl
 ├── patch_tokens/
@@ -147,10 +148,10 @@ feature/coco2014_dinov2_vitb14_reg_448/
 
 这一步是不做每图 local 压缩的对照组：直接把所有图片的所有 DINOv2 patch tokens 输入 streaming KMeans。
 
-配置文件：`configs/global_cluster_k1024.yaml`
+配置文件：`configs/cluster_global.yaml`
 
 ```bash
-python experiments/run_global_patch_cluster.py --config configs/global_cluster_k1024.yaml
+python experiments/run_global_patch_cluster.py --config configs/cluster_global.yaml
 # 或
 bash scripts/run_2_global_cluster.sh
 ```
@@ -158,13 +159,13 @@ bash scripts/run_2_global_cluster.sh
 主要输入：
 
 ```text
-feature/coco2014_dinov2_vitb14_reg_448/patch_tokens/
+feature/vision/coco2014_dinov2_vitb14_reg_448/patch_tokens/
 ```
 
 主要输出：
 
 ```text
-feature/coco2014_dinov2_vitb14_reg_448/
+feature/vision/coco2014_dinov2_vitb14_reg_448/
 ├── kmeans/
 │   ├── centroids_k1024_fp32.npy
 │   ├── centroids_k1024_fp16.npy
@@ -180,10 +181,10 @@ feature/coco2014_dinov2_vitb14_reg_448/
 
 这一步是 local 压缩实验组：每张图内部先聚成固定数量的 local centers，再和 text atoms 做密度比较。
 
-配置文件：`configs/local_cluster_k20.yaml`
+配置文件：`configs/cluster_local.yaml`
 
 ```bash
-python experiments/run_local_patch_cluster.py --config configs/local_cluster_k20.yaml
+python experiments/run_local_patch_cluster.py --config configs/cluster_local.yaml
 # 或
 bash scripts/run_2_local_cluster.sh
 ```
@@ -191,13 +192,13 @@ bash scripts/run_2_local_cluster.sh
 主要输入：
 
 ```text
-feature/coco2014_dinov2_vitb14_reg_448/patch_tokens/
+feature/vision/coco2014_dinov2_vitb14_reg_448/patch_tokens/
 ```
 
 主要输出：
 
 ```text
-feature/coco2014_dinov2_vitb14_reg_448_local_k20/
+feature/vision/coco2014_dinov2_vitb14_reg_448_local_k20/
 ├── local_centers.pt
 ├── local_assignments.pt
 ├── local_center_weights.pt
@@ -210,10 +211,10 @@ feature/coco2014_dinov2_vitb14_reg_448_local_k20/
 
 ### Step 3: 构造 text atoms
 
-配置文件：`configs/text_atoms_llama.yaml`
+配置文件：`configs/text_atoms.yaml`
 
 ```bash
-python experiments/run_text_atoms.py --config configs/text_atoms_llama.yaml
+python experiments/run_text_atoms.py --config configs/text_atoms.yaml
 # 或
 bash scripts/run_3_text_atoms.sh
 ```
@@ -227,17 +228,17 @@ feature/density/coco2014_n1000_k20/sample_1000.jsonl
 主要输出：
 
 ```text
-feature/text/coco2014_n1000_k20/text_atoms.jsonl
+feature/text/coco2014_llama_atoms_k20/text_atoms.jsonl
 ```
 
 说明：Llama 只负责提前生成 text atoms；density evaluation 不默认强依赖 Llama，只读取已经存在的 `recaption_jsonl`。`text_atoms.jsonl` 会作为后续可复用文本中间特征保存在 `feature/text/`，而不是 `outputs/`。
 
 ### Step 4: density evaluation
 
-配置文件：`configs/local_density_n1000_k20.yaml`
+配置文件：`configs/density_local.yaml`
 
 ```bash
-python experiments/run_density_eval.py --config configs/local_density_n1000_k20.yaml --stage all
+python experiments/run_density_eval.py --config configs/density_local.yaml --stage all
 # 或
 bash scripts/run_4_density_eval.sh
 ```
@@ -299,11 +300,11 @@ embedding_2d
 
 ### Step 6: eval prototypes
 
-配置文件：`configs/eval_prototypes_mscoco14.yaml` 或 `configs/eval_prototypes_mscoco17.yaml`
+配置文件：`configs/eval_prototypes.yaml`
 
 ```bash
-python experiments/extract_eval_prototypes.py --config configs/eval_prototypes_mscoco14.yaml
-python experiments/extract_eval_prototypes.py --config configs/eval_prototypes_mscoco17.yaml
+python experiments/extract_eval_prototypes.py --config configs/eval_prototypes.yaml --set active_dataset=mscoco14
+python experiments/extract_eval_prototypes.py --config configs/eval_prototypes.yaml --set active_dataset=mscoco17
 ```
 
 主要输出：
@@ -353,13 +354,13 @@ bash scripts/smoke_check.sh
 bash scripts/run_1_extract.sh
 bash scripts/run_2_global_cluster.sh
 bash scripts/run_2_local_cluster.sh
-python experiments/run_density_eval.py --config configs/local_density_n1000_k20.yaml --stage sample
-python experiments/run_text_atoms.py --config configs/text_atoms_llama.yaml
-python experiments/run_density_eval.py --config configs/local_density_n1000_k20.yaml --stage features
-python experiments/run_density_eval.py --config configs/local_density_n1000_k20.yaml --stage report
+python experiments/run_density_eval.py --config configs/density_local.yaml --stage sample
+python experiments/run_text_atoms.py --config configs/text_atoms.yaml
+python experiments/run_density_eval.py --config configs/density_local.yaml --stage features
+python experiments/run_density_eval.py --config configs/density_local.yaml --stage report
 ```
 
-如果已经有 `text_atoms.jsonl`，可以跳过 Llama 生成步骤，直接在 `configs/local_density_n1000_k20.yaml` 中修改：
+如果已经有 `text_atoms.jsonl`，可以跳过 Llama 生成步骤，直接在 `configs/density_local.yaml` 中修改：
 
 ```yaml
 text:
@@ -377,6 +378,30 @@ resolved_config.yaml
 ```
 
 这样可以回溯某次实验真实使用的参数。
+
+
+### 5.1 active_dataset 与 --set 覆盖
+
+新的主 config 支持在同一个 YAML 中切换 MSCOCO2014 / MSCOCO2017：
+
+```bash
+python experiments/extract_dinov2_features.py \
+  --config configs/extract_dinov2.yaml \
+  --set active_dataset=mscoco17
+```
+
+也可以用 `--set key=value` 覆盖任意 dotted key。常用例子：
+
+```bash
+python experiments/run_density_eval.py \
+  --config configs/density_local.yaml \
+  --set active_dataset=mscoco14 \
+  --set data.num_images=5000 \
+  --set feature.out_dir=feature/density/coco2014_n5000_k20 \
+  --set experiment.output_dir=outputs/density/coco2014_n5000_k20
+```
+
+解析顺序为：先读取 `active_dataset` 并合并对应 dataset preset，再应用其它 `--set` 覆盖。因此命令行覆盖值优先级最高。
 
 ## 6. 结果解释重点
 

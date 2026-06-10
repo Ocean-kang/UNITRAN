@@ -8,13 +8,13 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from src.experiment_utils import add_config_arg, call_main, cli_args, first_existing, infer_output_dir, load_config, save_resolved_config
+from src.experiment_utils import add_config_arg, call_main, cli_args, first_existing, infer_output_dir, resolve_config, save_resolved_config
 
 
 def main() -> None:
     parser = add_config_arg("Extract DINOv2 patch/CLS features from COCO images.")
     args = parser.parse_args()
-    cfg = load_config(args.config)
+    cfg = resolve_config(args.config, args.set)
     out_dir = infer_output_dir(cfg, "vision.out_dir", "feature.out_dir")
     save_resolved_config(cfg, out_dir)
 

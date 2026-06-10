@@ -1,17 +1,34 @@
+active_dataset: mscoco14
+
+datasets:
+  mscoco14:
+    feature_out_dir: feature/density/coco2014_n1000_k20
+    output_dir: outputs/mapping/coco2014_n1000_k20
+    data:
+      embedding_dir: feature/density/coco2014_n1000_k20
+      train_path: feature/density/coco2014_n1000_k20/local_density_eval_expanded.pt
+      eval_path: null
+  mscoco17:
+    feature_out_dir: feature/density/coco2017_n1000_k20
+    output_dir: outputs/mapping/coco2017_n1000_k20
+    data:
+      embedding_dir: feature/density/coco2017_n1000_k20
+      train_path: feature/density/coco2017_n1000_k20/local_density_eval_expanded.pt
+      eval_path: null
+
 experiment:
   name: train_mapping_vision_to_text
   seed: 0
-  output_dir: outputs/mapping/coco2014_n1000_k20
+
 data:
-  embedding_dir: feature/density/coco2014_n1000_k20
   source_key: vision_feats
   target_key: text_feats
-  train_path: feature/density/coco2014_n1000_k20/local_density_eval_expanded.pt
-  eval_path: null
+
 mapping:
-  method: vec2vec
+  method: mini_vec2vec
   source: vision
   target: text
+
 training:
   device: cuda
   train_holdout: 8192
@@ -25,9 +42,9 @@ training:
   refine_k: 50
   refine2_clusters: 500
   alpha: 0.5
-  epochs: 20
+  epochs: 100
   steps_per_epoch: 0
-  batch_size: 256
+  batch_size: 512
   latent_dim: 768
   hidden_dim: 1024
   depth: 3

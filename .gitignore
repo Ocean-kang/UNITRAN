@@ -220,5 +220,6 @@ __marimo__/
 /data/*
 /feature
 /outputs
+/logs
 Meta-Llama-3-8B-Instruct
 Meta-Llama-3-8B-Instruct-HF

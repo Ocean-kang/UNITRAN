@@ -1,0 +1,53 @@
+active_dataset: mscoco17
+
+datasets:
+  mscoco14:
+    coco_root: data/mscoco14
+    split: val2014
+    annotation_type: auto
+    image_dir: data/mscoco14/val2014
+    output_dir: feature/eval/mscoco2014
+    prototype:
+      out_name: mscoco2014_eval_prototypes.pt
+  mscoco17:
+    coco_root: data/mscoco17
+    split: val2017
+    annotation_type: panoptic
+    ann_path: data/mscoco17/annotations/panoptic_val2017.json
+    image_dir: data/mscoco17/val2017
+    mask_dir: data/mscoco17/panoptic_val2017
+    output_dir: feature/eval/mscoco2017
+    prototype:
+      out_name: mscoco2017_eval_prototypes.pt
+
+experiment:
+  name: eval_prototypes
+  seed: 0
+
+data:
+  ann_path: null
+  image_dir: null
+  mask_dir: null
+  max_images: null
+
+vision:
+  model: dinov2_vitb14
+  image_size: 448
+  patch_size: 14
+  mask_to_patch: majority
+  normalize_prototypes: true
+
+text:
+  embedding_model: sentence-transformers/all-mpnet-base-v2
+  batch_size: 128
+
+prototype:
+  out_dir: null
+  min_patch_count: 1
+
+runtime:
+  batch_size: 16
+  num_workers: 4
+  device: cuda
+  amp_dtype: float16
+  overwrite: false

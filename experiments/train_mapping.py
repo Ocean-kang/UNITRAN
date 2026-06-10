@@ -8,19 +8,19 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from src.experiment_utils import add_config_arg, call_main, cli_args, first_existing, infer_output_dir, load_config, save_resolved_config
+from src.experiment_utils import add_config_arg, call_main, cli_args, first_existing, infer_output_dir, resolve_config, save_resolved_config
 
 
 def main() -> None:
     parser = add_config_arg("Train UNITRAN mapping from one config file.")
     args = parser.parse_args()
-    cfg = load_config(args.config)
+    cfg = resolve_config(args.config, args.set)
     out_dir = infer_output_dir(cfg, "training.out_dir")
     save_resolved_config(cfg, out_dir)
 
     mapping = {
-        "method": first_existing(cfg, ["mapping.method", "method"], "mini_vec2vec"),
-        "embedding_dir": first_existing(cfg, ["data.embedding_dir", "embedding_dir"], None),
+        "method": first_existing(cfg, ["mapping.method", "method.name", "method"], "mini_vec2vec"),
+        "embedding_dir": first_existing(cfg, ["data.embedding_dir", "feature.out_dir", "embedding_dir"], None),
         "train_path": first_existing(cfg, ["data.train_path", "train_path"], None),
         "eval_path": first_existing(cfg, ["data.eval_path", "eval_path"], None),
         "source_key": first_existing(cfg, ["data.source_key", "source_key"], "vision_feats"),

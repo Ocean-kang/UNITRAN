@@ -1,0 +1,48 @@
+active_dataset: mscoco14
+
+datasets:
+  mscoco14:
+    coco_root: data/mscoco14
+    split: train2014
+    sample_jsonl: feature/density/coco2014_n1000_k20/sample_1000.jsonl
+    vision_feature_dir: feature/vision/coco2014_dinov2_vitb14_reg_448_local_k20
+    recaption_jsonl: feature/text/coco2014_llama_atoms_k20/text_atoms.jsonl
+    feature_out_dir: feature/density/coco2014_n1000_k20
+    output_dir: outputs/density/coco2014_n1000_k20
+  mscoco17:
+    coco_root: data/mscoco17
+    split: train2017
+    sample_jsonl: feature/density/coco2017_n1000_k20/sample_1000.jsonl
+    vision_feature_dir: feature/vision/coco2017_dinov2_vitb14_reg_448_local_k20
+    recaption_jsonl: feature/text/coco2017_llama_atoms_k20/text_atoms.jsonl
+    feature_out_dir: feature/density/coco2017_n1000_k20
+    output_dir: outputs/density/coco2017_n1000_k20
+
+experiment:
+  name: local_density_n1000_k20
+  seed: 42
+
+data:
+  ann_path: null
+  num_images: 1000
+
+cluster:
+  local_k: 20
+
+text:
+  max_captions: 5
+  atoms_per_image: 20
+  embedding_model: sentence-transformers/all-mpnet-base-v2
+
+sample:
+  mode: first
+
+runtime:
+  text_batch_size: 128
+  device: cuda
+
+evaluation:
+  kind: local
+  max_points: 20000
+  knn_k: 5
+  sw_proj: 128

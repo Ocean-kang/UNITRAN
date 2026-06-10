@@ -15,7 +15,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from src.experiment_utils import add_config_arg, call_main, cli_args, first_existing, infer_output_dir, load_config, save_resolved_config
+from src.experiment_utils import add_config_arg, call_main, cli_args, first_existing, infer_output_dir, resolve_config, save_resolved_config
 
 
 def _module(cfg: dict) -> str:
@@ -36,12 +36,24 @@ def _feature_out_dir(cfg: dict, local: bool) -> str:
     return first_existing(cfg, ["feature.out_dir", "feature.output_dir", "density.feature_dir"], default_dir)
 
 
+def _density_sample_path(cfg: dict, feature_dir: str | None) -> str | None:
+    sample_path = first_existing(cfg, ["sample.out_jsonl", "evaluation.sample_jsonl"], None)
+    if not feature_dir:
+        return sample_path
+    n = first_existing(cfg, ["data.num_images", "num_images"], 1000)
+    derived = f"{feature_dir}/sample_{n}.jsonl"
+    if sample_path is None:
+        return derived
+    # Keep sample jsonl under feature.out_dir. This lets --set data.num_images=5000
+    # together with --set feature.out_dir=... automatically move sample_5000.jsonl.
+    if Path(str(sample_path)).parent != Path(str(feature_dir)):
+        return derived
+    return sample_path
+
+
 def _sample_args(cfg: dict, feature_dir: str | None, local: bool) -> dict:
     default_feature = "feature/coco2014_dinov2_vitb14_reg_448_local_k20" if local else "feature/coco2014_dinov2_vitb14_reg_448"
-    sample_path = first_existing(cfg, ["sample.out_jsonl", "evaluation.sample_jsonl"], None)
-    if sample_path is None and feature_dir:
-        n = first_existing(cfg, ["data.num_images", "num_images"], 1000)
-        sample_path = f"{feature_dir}/sample_{n}.jsonl"
+    sample_path = _density_sample_path(cfg, feature_dir)
     return {
         "coco_root": first_existing(cfg, ["data.coco_root", "coco_root"], "data/mscoco14"),
         "split": first_existing(cfg, ["data.split", "split"], "train2014"),
@@ -57,10 +69,7 @@ def _sample_args(cfg: dict, feature_dir: str | None, local: bool) -> dict:
 
 def _feature_args(cfg: dict, feature_dir: str | None, local: bool) -> dict:
     default_feature = "feature/coco2014_dinov2_vitb14_reg_448_local_k20" if local else "feature/coco2014_dinov2_vitb14_reg_448"
-    sample_path = first_existing(cfg, ["evaluation.sample_jsonl", "sample.out_jsonl"], None)
-    if sample_path is None and feature_dir:
-        n = first_existing(cfg, ["data.num_images", "num_images"], 1000)
-        sample_path = f"{feature_dir}/sample_{n}.jsonl"
+    sample_path = _density_sample_path(cfg, feature_dir)
     common = {
         "sample_jsonl": sample_path,
         "recaption_jsonl": first_existing(cfg, ["text.recaption_jsonl", "recaption_jsonl"], None),
@@ -98,7 +107,7 @@ def main() -> None:
     parser = add_config_arg("Run density evaluation from one config file.")
     parser.add_argument("--stage", choices=["sample", "features", "report", "all"], default="all")
     args = parser.parse_args()
-    cfg = load_config(args.config)
+    cfg = resolve_config(args.config, args.set)
 
     module = _module(cfg)
     local = module.endswith("local_density")
