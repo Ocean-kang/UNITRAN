@@ -5,13 +5,13 @@ datasets:
     caption_json: data/mscoco14/annotations/captions_train2014.json
     output_dir: feature/text/coco2014_llama_atoms_k20
     text:
-      sample_jsonl: feature/density/coco2014_n1000_k20/sample_1000.jsonl
+      sample_jsonl: feature/density/coco2014_n5000_k20/sample_5000.jsonl
       out_jsonl: feature/text/coco2014_llama_atoms_k20/text_atoms.jsonl
   mscoco17:
     caption_json: data/mscoco17/annotations/captions_train2017.json
     output_dir: feature/text/coco2017_llama_atoms_k20
     text:
-      sample_jsonl: feature/density/coco2017_n1000_k20/sample_1000.jsonl
+      sample_jsonl: feature/density/coco2017_n5000_k20/sample_5000.jsonl
       out_jsonl: feature/text/coco2017_llama_atoms_k20/text_atoms.jsonl
 
 experiment:
@@ -21,7 +21,7 @@ text:
   backend: hf
   model_path: ./Meta-Llama-3-8B-Instruct-HF
   atoms_per_image: 20
-  max_images: 1000
+  max_images: 5000
   output_name: text_atoms.jsonl
 
 llm:
@@ -33,7 +33,7 @@ llm:
   temperature: 0.2
   top_p: 0.9
   torch_dtype: bf16
-  device_map: auto
+  device_map: ""
   local_files_only: true
   trust_remote_code: false
 

@@ -57,30 +57,85 @@ def existing_ids(path: Path) -> set[int]:
     return done
 
 
+# def build_prompt(captions: List[str], max_atoms: int, num_atoms: int = 0) -> str:
+#     caps = "\n".join([f"{i+1}. {c}" for i, c in enumerate(captions)])
+#     atom_rule = f"exactly {num_atoms}" if num_atoms > 0 else f"8 to {max_atoms}"
+#     return f"""You are rewriting MSCOCO image captions for a vision-language representation experiment.
+
+# Original captions:
+# {caps}
+
+# Task:
+# 1. Write one grounded long caption in English. Only use details that are directly supported by the captions or highly conservative visual implications.
+# 2. Split the result into short semantic atoms. Each atom should describe ONE visual unit: object, part, attribute, material, texture, action, spatial relation, or background/stuff.
+# 3. Avoid hallucinated details such as exact colors, brands, counts, or locations unless the captions clearly support them.
+# 4. Output valid JSON only. Do not add markdown.
+
+# JSON schema:
+# {{
+#   "long_caption": "...",
+#   "atoms": ["short atom 1", "short atom 2", "..."]
+# }}
+
+# Constraints: 
+# - Number of atoms: {atom_rule}.
+# - Each atom: 4 to 18 words.
+# - No duplicate atoms.
+# """
+
 def build_prompt(captions: List[str], max_atoms: int, num_atoms: int = 0) -> str:
     caps = "\n".join([f"{i+1}. {c}" for i, c in enumerate(captions)])
     atom_rule = f"exactly {num_atoms}" if num_atoms > 0 else f"8 to {max_atoms}"
-    return f"""You are rewriting MSCOCO image captions for a vision-language representation experiment.
 
-Original captions:
+    return f"""You construct dense visual semantic atoms for matching DINOv2 patch/region features.
+
+Original MSCOCO captions:
 {caps}
 
-Task:
-1. Write one grounded long caption in English. Only use details that are directly supported by the captions or highly conservative visual implications.
-2. Split the result into short semantic atoms. Each atom should describe ONE visual unit: object, part, attribute, material, texture, action, spatial relation, or background/stuff.
-3. Avoid hallucinated details such as exact colors, brands, counts, or locations unless the captions clearly support them.
-4. Output valid JSON only. Do not add markdown.
+Goal:
+Generate short, grounded, visually observable text atoms that can correspond to local image patches, object parts, textures, materials, shapes, surfaces, actions, spatial relations, or background/stuff regions.
+
+Important rules:
+1. Use only information supported by the captions or very conservative visual implications.
+2. Prefer local component-level phrases over full-sentence captions.
+3. Each atom should describe ONE visual unit.
+4. Generate positive visual phrases only.
+5. Do not use negation, contrast, uncertainty, or non-visual reasoning.
+6. Do not generate encyclopedic definitions or object functions.
+7. Avoid hallucinated exact colors, brands, numbers, locations, or identities unless clearly supported.
+8. Include both foreground objects and background/stuff regions when supported.
+
+Good atom examples:
+- human hand region
+- animal fur texture
+- round vehicle wheel
+- wooden table surface
+- grassy ground area
+- person standing pose
+- object boundary edge
+- background vegetation texture
+
+Bad atom examples:
+- not a dog
+- probably in Europe
+- used for transportation
+- unlike other animals
+- beautiful outdoor scene
+- the image may contain something
+
+Output valid JSON only. Do not add markdown.
 
 JSON schema:
 {{
-  "long_caption": "...",
-  "atoms": ["short atom 1", "short atom 2", "..."]
+  "long_caption": "one conservative grounded caption summarizing the image",
+  "atoms": ["short visual atom 1", "short visual atom 2", "..."]
 }}
 
 Constraints:
 - Number of atoms: {atom_rule}.
-- Each atom: 4 to 18 words.
+- Each atom: 2 to 8 words.
 - No duplicate atoms.
+- Atoms should be concrete visual phrases, not full sentences.
 """
 
 

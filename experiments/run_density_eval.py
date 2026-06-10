@@ -76,7 +76,6 @@ def _feature_args(cfg: dict, feature_dir: str | None, local: bool) -> dict:
         "text_model": first_existing(cfg, ["text.embedding_model", "text_model"], "sentence-transformers/all-mpnet-base-v2"),
         "text_batch_size": first_existing(cfg, ["runtime.text_batch_size", "text_batch_size"], 128),
         "device": first_existing(cfg, ["runtime.device", "device"], "cuda"),
-        "seed": first_existing(cfg, ["experiment.seed", "seed"], 0),
         "out_dir": feature_dir or ("feature/density/coco2014_n1000_k20" if local else "feature/density/coco2014_patch"),
     }
     if local:

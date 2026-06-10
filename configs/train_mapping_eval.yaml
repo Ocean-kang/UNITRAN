@@ -1,17 +1,17 @@
-active_dataset: mscoco17
+active_dataset: mscoco14
 
 datasets:
   mscoco14:
-    output_dir: outputs/mapping/coco2014_n1000_k20_eval_mscoco14
+    output_dir: outputs/mapping/coco2014_n5000_k20_eval_mscoco14
     data:
-      embedding_dir: feature/density/coco2014_n1000_k20
-      train_path: feature/density/coco2014_n1000_k20/local_density_eval_expanded.pt
+      embedding_dir: feature/density/coco2014_n5000_k20
+      train_path: feature/density/coco2014_n5000_k20/local_density_eval_expanded.pt
       eval_path: feature/eval/mscoco2014/mscoco2014_eval_prototypes.pt
   mscoco17:
-    output_dir: outputs/mapping/coco2017_n1000_k20_eval_mscoco17
+    output_dir: outputs/mapping/coco2017_n5000_k20_eval_mscoco17
     data:
-      embedding_dir: feature/density/coco2017_n1000_k20
-      train_path: feature/density/coco2017_n1000_k20/local_density_eval_expanded.pt
+      embedding_dir: feature/density/coco2017_n5000_k20
+      train_path: feature/density/coco2017_n5000_k20/local_density_eval_expanded.pt
       eval_path: feature/eval/mscoco2017/mscoco2017_eval_prototypes.pt
 
 experiment:
@@ -23,7 +23,7 @@ data:
   target_key: text_feats
 
 mapping:
-  method: mini_vec2vec
+  method: vec2vec
   source: vision
   target: text
 
