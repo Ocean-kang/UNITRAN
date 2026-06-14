@@ -1,0 +1,43 @@
+active_dataset: mscoco14
+
+datasets:
+  mscoco14:
+    coco_root: data/mscoco14
+    split: train2014
+    output_dir: feature/clip_dinov2/coco2014_clipL14_dinov2_vitb14_reg_224
+  mscoco17:
+    coco_root: data/mscoco17
+    split: train2017
+    output_dir: feature/clip_dinov2/coco2017_clipL14_dinov2_vitb14_reg_224
+
+experiment:
+  name: extract_clip_v_to_dinov2_patch_bank
+  seed: 0
+
+data:
+  ann_path: null
+  image_dir: null
+  max_images: 1000
+
+clip:
+  model: openai/clip-vit-large-patch14
+
+vision:
+  model: dinov2_vitb14_reg
+  patch_size: 14
+
+feature:
+  image_size: 224
+  save_dtype: float16
+  amp_dtype: float16
+  normalize_features: true
+  max_pairs: 0
+
+runtime:
+  batch_size: 32
+  num_workers: 8
+  shard_id: 0
+  num_shards: 1
+  shard_strategy: contiguous
+  device: cuda
+  overwrite: false

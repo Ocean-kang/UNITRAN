@@ -1,0 +1,58 @@
+active_dataset: mscoco14
+
+datasets:
+  mscoco14:
+    output_dir: outputs/mapping/coco2014_clipL14_to_dinov2_vitb14_reg_224
+    data:
+      embedding_dir: feature/clip_dinov2/coco2014_clipL14_dinov2_vitb14_reg_224
+      train_path: feature/clip_dinov2/coco2014_clipL14_dinov2_vitb14_reg_224/paired_patch_bank.pt
+      eval_path: null
+  mscoco17:
+    output_dir: outputs/mapping/coco2017_clipL14_to_dinov2_vitb14_reg_224
+    data:
+      embedding_dir: feature/clip_dinov2/coco2017_clipL14_dinov2_vitb14_reg_224
+      train_path: feature/clip_dinov2/coco2017_clipL14_dinov2_vitb14_reg_224/paired_patch_bank.pt
+      eval_path: null
+
+experiment:
+  name: train_clip_v_to_dinov2_patch_mapping
+  seed: 0
+
+data:
+  source_key: clip_feats
+  target_key: dinov2_feats
+
+mapping:
+  method: vec2vec
+  source: clip_v_patch
+  target: dinov2_patch
+
+training:
+  device: cuda
+  train_holdout: 8192
+  num_anchor_runs: 30
+  num_clusters: 20
+  qap_runs: 30
+  anchor_subsample: 10000
+  initial_k: 50
+  refine_iters: 100
+  refine_sample: 10000
+  refine_k: 50
+  refine2_clusters: 500
+  alpha: 0.5
+  epochs: 100
+  steps_per_epoch: 0
+  batch_size: 512
+  latent_dim: 768
+  hidden_dim: 1024
+  depth: 3
+  discriminator_dim: 1024
+  discriminator_depth: 3
+  lr: 0.0001
+  discriminator_lr: 0.0001
+  weight_decay: 0.0
+  max_grad_norm: 1.0
+  lambda_rec: 5.0
+  lambda_cc: 5.0
+  lambda_vsp: 1.0
+  lambda_adv: 1.0
