@@ -277,19 +277,7 @@ def load_dinov2_model(model_name: str, device: torch.device) -> torch.nn.Module:
     return model
 
 
-@torch.no_grad()
-def extract_patch_tokens(
-    model: torch.nn.Module,
-    images: torch.Tensor,
-    use_amp: bool,
-    amp_dtype: torch.dtype,
-) -> torch.Tensor:
-    if use_amp:
-        with torch.autocast(device_type="cuda", dtype=amp_dtype):
-            out = model.forward_features(images)
-    else:
-        out = model.forward_features(images)
-
+def _get_patch_tokens_from_output(out: Any) -> torch.Tensor:
     if isinstance(out, dict):
         for key in ("x_norm_patchtokens", "patch_tokens", "patchtokens"):
             if key in out:
@@ -303,6 +291,141 @@ def extract_patch_tokens(
                 return item
 
     raise TypeError(f"Unsupported DINOv2 forward_features output type: {type(out)}")
+
+
+def _get_cls_token_from_output(out: Any) -> Optional[torch.Tensor]:
+    if isinstance(out, dict):
+        for key in ("x_norm_clstoken", "cls_token", "clstoken"):
+            value = out.get(key)
+            if torch.is_tensor(value):
+                return value
+    return None
+
+
+@torch.no_grad()
+def extract_patch_tokens(
+    model: torch.nn.Module,
+    images: torch.Tensor,
+    use_amp: bool,
+    amp_dtype: torch.dtype,
+) -> torch.Tensor:
+    if use_amp:
+        with torch.autocast(device_type="cuda", dtype=amp_dtype):
+            out = model.forward_features(images)
+    else:
+        out = model.forward_features(images)
+    return _get_patch_tokens_from_output(out)
+
+
+def _infer_last_block_num_heads(model: torch.nn.Module) -> Optional[int]:
+    try:
+        attn = model.blocks[-1].attn
+    except Exception:
+        return None
+    num_heads = getattr(attn, "num_heads", None)
+    return int(num_heads) if num_heads is not None else None
+
+
+def _infer_num_global_tokens(out: Any, qkv_num_tokens: int, num_patch_tokens: int) -> int:
+    if isinstance(out, dict):
+        reg_tokens = out.get("x_norm_regtokens")
+        if torch.is_tensor(reg_tokens) and reg_tokens.ndim == 3:
+            return 1 + int(reg_tokens.shape[1])
+    inferred = int(qkv_num_tokens) - int(num_patch_tokens)
+    if inferred < 1:
+        raise RuntimeError(
+            f"Cannot infer global token count from qkv_num_tokens={qkv_num_tokens} "
+            f"and num_patch_tokens={num_patch_tokens}"
+        )
+    return inferred
+
+
+def _process_last_self_attention(
+    qkv_output: torch.Tensor,
+    num_heads: int,
+    num_global_tokens: int,
+    num_patch_tokens: int,
+) -> torch.Tensor:
+    if qkv_output.ndim != 3:
+        raise RuntimeError(f"Expected qkv output [B,T,3D], got {tuple(qkv_output.shape)}")
+    batch_size, num_tokens, three_embed_dim = qkv_output.shape
+    if three_embed_dim % 3 != 0:
+        raise RuntimeError(f"Last qkv dimension must be divisible by 3, got {three_embed_dim}")
+    embed_dim = three_embed_dim // 3
+    if embed_dim % num_heads != 0:
+        raise RuntimeError(f"embed_dim={embed_dim} is not divisible by num_heads={num_heads}")
+    if num_tokens < num_global_tokens + num_patch_tokens:
+        raise RuntimeError(
+            f"qkv token count {num_tokens} is smaller than "
+            f"num_global_tokens+num_patch_tokens={num_global_tokens + num_patch_tokens}"
+        )
+
+    head_dim = embed_dim // num_heads
+    qkv = qkv_output.reshape(batch_size, num_tokens, 3, num_heads, head_dim).permute(2, 0, 3, 1, 4)
+    q, k = qkv[0], qkv[1]
+    attn = (q * (head_dim ** -0.5)) @ k.transpose(-2, -1)
+    return attn[:, :, 0, num_global_tokens : num_global_tokens + num_patch_tokens]
+
+
+@torch.no_grad()
+def extract_dinov2_batch_features(
+    model: torch.nn.Module,
+    images: torch.Tensor,
+    use_amp: bool,
+    amp_dtype: torch.dtype,
+    need_cls_token: bool = False,
+    need_self_attention: bool = False,
+) -> Dict[str, torch.Tensor]:
+    captured: Dict[str, torch.Tensor] = {}
+    handle = None
+
+    if need_self_attention:
+        try:
+            handle = model.blocks[-1].attn.qkv.register_forward_hook(
+                lambda _module, _input, output: captured.__setitem__("qkv", output)
+            )
+        except Exception as e:
+            raise RuntimeError("Cannot register hook on model.blocks[-1].attn.qkv") from e
+
+    try:
+        if use_amp:
+            with torch.autocast(device_type="cuda", dtype=amp_dtype):
+                out = model.forward_features(images)
+        else:
+            out = model.forward_features(images)
+    finally:
+        if handle is not None:
+            handle.remove()
+
+    patch_tokens = _get_patch_tokens_from_output(out)
+    features: Dict[str, torch.Tensor] = {"patch_tokens": patch_tokens}
+
+    if need_cls_token:
+        cls_token = _get_cls_token_from_output(out)
+        if cls_token is None:
+            raise KeyError("Cannot find CLS token in DINOv2 forward_features output")
+        features["cls_token"] = cls_token
+
+    if need_self_attention:
+        qkv_output = captured.get("qkv")
+        if qkv_output is None:
+            raise RuntimeError("DINOv2 qkv hook did not capture any output")
+        num_heads = _infer_last_block_num_heads(model)
+        if num_heads is None:
+            raise RuntimeError("Cannot infer number of attention heads from the DINOv2 model")
+        num_patch_tokens = int(patch_tokens.shape[1])
+        num_global_tokens = _infer_num_global_tokens(out, int(qkv_output.shape[1]), num_patch_tokens)
+        self_attn_scores = _process_last_self_attention(
+            qkv_output=qkv_output,
+            num_heads=num_heads,
+            num_global_tokens=num_global_tokens,
+            num_patch_tokens=num_patch_tokens,
+        )
+        features["self_attn_scores"] = self_attn_scores
+        features["num_attention_heads"] = torch.tensor(num_heads, device=patch_tokens.device)
+        features["num_global_tokens"] = torch.tensor(num_global_tokens, device=patch_tokens.device)
+
+    return features
 
 
 def shard_rows(rows: Sequence[Dict[str, Any]], shard_id: int, num_shards: int, strategy: str) -> List[Dict[str, Any]]:
@@ -386,6 +509,28 @@ def write_global_files(args: argparse.Namespace, rows: List[Dict[str, Any]]) -> 
     jsonl_dump(out_dir / "images.jsonl", enriched)
 
 
+def write_feature_shape(path: Path, shape: List[int], dtype: str, note: str) -> None:
+    json_dump(
+        path,
+        {
+            "storage": "sharded_numpy_memmap",
+            "full_shape": shape,
+            "dtype": dtype,
+            "note": note,
+        },
+    )
+
+
+def mmap_file_path(feature_dir: Path, shard_prefix: str, save_dtype: str) -> Path:
+    suffix = "fp16" if save_dtype == "float16" else "fp32"
+    return feature_dir / f"{shard_prefix}_{suffix}.mmap"
+
+
+def tensor_to_numpy(tensor: torch.Tensor, save_dtype: str) -> np.ndarray:
+    dtype = torch.float16 if save_dtype == "float16" else torch.float32
+    return tensor.detach().cpu().to(dtype).numpy()
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Extract DINOv2 patch tokens for MS COCO images.")
     parser.add_argument("--coco_root", type=str, default="data/mscoco14", help="COCO root, e.g. data/mscoco14 or data/mscoco17")
@@ -408,6 +553,10 @@ def main() -> None:
     parser.add_argument("--amp_dtype", type=str, default="float16", choices=["float16", "bfloat16", "none"])
     parser.add_argument("--save_image_mean_pt", action="store_true", help="Also save image-level mean patch features as a UNITRAN-friendly .pt file.")
     parser.add_argument("--normalize_image_mean", action="store_true", help="L2 normalize image mean features before saving optional .pt.")
+    parser.add_argument("--save_cls_token", action="store_true", help="Save DINOv2 CLS tokens as a sharded memmap.")
+    parser.add_argument("--save_self_attn_maps", action="store_true", help="Save last-layer CLS-to-patch self-attention maps as [N,H,P].")
+    parser.add_argument("--save_avg_self_attn", action="store_true", help="Save Talk2DINO-style average-attention pooled image tokens as [N,D].")
+    parser.add_argument("--save_disentangled_self_attn", action="store_true", help="Save Talk2DINO-style per-head attention pooled tokens as [N,H,D].")
     parser.add_argument("--overwrite", action="store_true", help="Overwrite existing shard files.")
     parser.add_argument("--write_global_meta", action="store_true", help="Write meta.json/images.jsonl/patch_tokens_shape.json. Safe to run on shard 0.")
     args = parser.parse_args()
@@ -442,16 +591,35 @@ def main() -> None:
 
     dtype = np.float16 if args.save_dtype == "float16" else np.float32
     shard_prefix = f"shard_{args.shard_id:03d}"
-    mmap_path = patch_dir / f"{shard_prefix}_fp16.mmap" if args.save_dtype == "float16" else patch_dir / f"{shard_prefix}_fp32.mmap"
+    mmap_path = mmap_file_path(patch_dir, shard_prefix, args.save_dtype)
     meta_path = patch_dir / f"{shard_prefix}.meta.json"
     image_jsonl_path = patch_dir / f"{shard_prefix}.images.jsonl"
     done_path = patch_dir / f"{shard_prefix}.done"
 
+    cls_dir = out_dir / "cls_tokens"
+    self_attn_dir = out_dir / "self_attn_maps"
+    avg_self_attn_dir = out_dir / "avg_self_attn"
+    disentangled_dir = out_dir / "disentangled_self_attn"
+    aux_paths: Dict[str, Path] = {}
+    if args.save_cls_token:
+        cls_dir.mkdir(parents=True, exist_ok=True)
+        aux_paths["cls_token"] = mmap_file_path(cls_dir, shard_prefix, args.save_dtype)
+    if args.save_self_attn_maps:
+        self_attn_dir.mkdir(parents=True, exist_ok=True)
+        aux_paths["self_attn_maps"] = mmap_file_path(self_attn_dir, shard_prefix, args.save_dtype)
+    if args.save_avg_self_attn:
+        avg_self_attn_dir.mkdir(parents=True, exist_ok=True)
+        aux_paths["avg_self_attn"] = mmap_file_path(avg_self_attn_dir, shard_prefix, args.save_dtype)
+    if args.save_disentangled_self_attn:
+        disentangled_dir.mkdir(parents=True, exist_ok=True)
+        aux_paths["disentangled_self_attn"] = mmap_file_path(disentangled_dir, shard_prefix, args.save_dtype)
+
     if done_path.exists() and not args.overwrite:
         print(f"[skip] {done_path} exists. Use --overwrite to rerun.")
         return
-    if mmap_path.exists() and not args.overwrite:
-        raise FileExistsError(f"{mmap_path} exists. Use --overwrite or remove it.")
+    for existing_path in [mmap_path, *aux_paths.values()]:
+        if existing_path.exists() and not args.overwrite:
+            raise FileExistsError(f"{existing_path} exists. Use --overwrite or remove it.")
 
     device = torch.device(args.device if torch.cuda.is_available() and args.device.startswith("cuda") else "cpu")
     print(f"[device] {device}")
@@ -460,6 +628,41 @@ def main() -> None:
     print(f"[save] {mmap_path}")
 
     model = load_dinov2_model(args.model, device=device)
+    need_self_attention = bool(args.save_self_attn_maps or args.save_avg_self_attn or args.save_disentangled_self_attn)
+    num_attention_heads = _infer_last_block_num_heads(model) if need_self_attention else 0
+    if need_self_attention and num_attention_heads is None:
+        raise RuntimeError("Cannot infer number of attention heads from the DINOv2 model")
+    args.num_attention_heads = int(num_attention_heads or 0)
+
+    if args.write_global_meta or args.shard_id == 0:
+        if args.save_cls_token:
+            write_feature_shape(
+                out_dir / "cls_tokens_shape.json",
+                [len(rows), args.feature_dim],
+                args.save_dtype,
+                "DINOv2 x_norm_clstoken for each image.",
+            )
+        if args.save_self_attn_maps:
+            write_feature_shape(
+                out_dir / "self_attn_maps_shape.json",
+                [len(rows), args.num_attention_heads, args.num_patches],
+                args.save_dtype,
+                "Last-layer normalized CLS-to-patch self-attention maps, one map per attention head.",
+            )
+        if args.save_avg_self_attn:
+            write_feature_shape(
+                out_dir / "avg_self_attn_shape.json",
+                [len(rows), args.feature_dim],
+                args.save_dtype,
+                "Talk2DINO-style token pooled from patch tokens with the averaged CLS-to-patch attention map.",
+            )
+        if args.save_disentangled_self_attn:
+            write_feature_shape(
+                out_dir / "disentangled_self_attn_shape.json",
+                [len(rows), args.num_attention_heads, args.feature_dim],
+                args.save_dtype,
+                "Talk2DINO-style per-head tokens pooled from patch tokens with each CLS-to-patch attention map.",
+            )
 
     dataset = CocoImageDataset(shard, image_size=args.image_size)
     loader = DataLoader(
@@ -473,6 +676,26 @@ def main() -> None:
     )
 
     mmap = np.memmap(mmap_path, dtype=dtype, mode="w+", shape=(len(shard), args.num_patches, args.feature_dim))
+    cls_mmap = (
+        np.memmap(aux_paths["cls_token"], dtype=dtype, mode="w+", shape=(len(shard), args.feature_dim))
+        if args.save_cls_token
+        else None
+    )
+    self_attn_mmap = (
+        np.memmap(aux_paths["self_attn_maps"], dtype=dtype, mode="w+", shape=(len(shard), args.num_attention_heads, args.num_patches))
+        if args.save_self_attn_maps
+        else None
+    )
+    avg_self_attn_mmap = (
+        np.memmap(aux_paths["avg_self_attn"], dtype=dtype, mode="w+", shape=(len(shard), args.feature_dim))
+        if args.save_avg_self_attn
+        else None
+    )
+    disentangled_mmap = (
+        np.memmap(aux_paths["disentangled_self_attn"], dtype=dtype, mode="w+", shape=(len(shard), args.num_attention_heads, args.feature_dim))
+        if args.save_disentangled_self_attn
+        else None
+    )
 
     use_amp = device.type == "cuda" and args.amp_dtype != "none"
     amp_dtype = torch.float16 if args.amp_dtype == "float16" else torch.bfloat16
@@ -484,7 +707,15 @@ def main() -> None:
 
     for batch in tqdm(loader, desc=f"extract shard {args.shard_id:03d}"):
         images = batch["images"].to(device, non_blocking=True)
-        patch_tokens = extract_patch_tokens(model, images, use_amp=use_amp, amp_dtype=amp_dtype)
+        features = extract_dinov2_batch_features(
+            model,
+            images,
+            use_amp=use_amp,
+            amp_dtype=amp_dtype,
+            need_cls_token=args.save_cls_token,
+            need_self_attention=need_self_attention,
+        )
+        patch_tokens = features["patch_tokens"]
 
         if patch_tokens.ndim != 3:
             raise RuntimeError(f"Expected patch tokens [B,P,D], got {tuple(patch_tokens.shape)}")
@@ -494,16 +725,56 @@ def main() -> None:
                 f"expected [B,{args.num_patches},{args.feature_dim}]."
             )
 
-        patch_cpu = patch_tokens.detach().cpu().to(torch.float16 if args.save_dtype == "float16" else torch.float32).numpy()
+        patch_cpu = tensor_to_numpy(patch_tokens, args.save_dtype)
+        cls_cpu = tensor_to_numpy(features["cls_token"], args.save_dtype) if args.save_cls_token else None
+
+        self_attn_cpu = None
+        avg_self_attn_cpu = None
+        disentangled_cpu = None
+        if need_self_attention:
+            self_attn_scores = features["self_attn_scores"]
+            if self_attn_scores.shape[1] != args.num_attention_heads or self_attn_scores.shape[2] != args.num_patches:
+                raise RuntimeError(
+                    f"Unexpected self-attention shape {tuple(self_attn_scores.shape)}; "
+                    f"expected [B,{args.num_attention_heads},{args.num_patches}]."
+                )
+            self_attn_maps = self_attn_scores.softmax(dim=-1)
+
+            if args.save_self_attn_maps:
+                self_attn_cpu = tensor_to_numpy(self_attn_maps, args.save_dtype)
+            if args.save_avg_self_attn:
+                avg_self_attn_weights = self_attn_scores.mean(dim=1).softmax(dim=-1)
+                avg_self_attn = (patch_tokens * avg_self_attn_weights.unsqueeze(-1)).mean(dim=1)
+                avg_self_attn_cpu = tensor_to_numpy(avg_self_attn, args.save_dtype)
+            if args.save_disentangled_self_attn:
+                disentangled = (patch_tokens.unsqueeze(1) * self_attn_maps.unsqueeze(-1)).mean(dim=2)
+                disentangled_cpu = tensor_to_numpy(disentangled, args.save_dtype)
 
         failed_positions = [j for j, ok in enumerate(batch["ok"]) if not ok]
         if failed_positions:
             # Do not keep features produced from zero placeholder images.
-            # Mark them in metadata and store zero patch tokens.
+            # Mark them in metadata and store zero features.
             patch_cpu[failed_positions] = 0
+            if cls_cpu is not None:
+                cls_cpu[failed_positions] = 0
+            if self_attn_cpu is not None:
+                self_attn_cpu[failed_positions] = 0
+            if avg_self_attn_cpu is not None:
+                avg_self_attn_cpu[failed_positions] = 0
+            if disentangled_cpu is not None:
+                disentangled_cpu[failed_positions] = 0
 
         for j, local_i in enumerate(batch["local_indices"]):
             mmap[local_i] = patch_cpu[j]
+            if cls_mmap is not None and cls_cpu is not None:
+                cls_mmap[local_i] = cls_cpu[j]
+            if self_attn_mmap is not None and self_attn_cpu is not None:
+                self_attn_mmap[local_i] = self_attn_cpu[j]
+            if avg_self_attn_mmap is not None and avg_self_attn_cpu is not None:
+                avg_self_attn_mmap[local_i] = avg_self_attn_cpu[j]
+            if disentangled_mmap is not None and disentangled_cpu is not None:
+                disentangled_mmap[local_i] = disentangled_cpu[j]
+
             ok = bool(batch["ok"][j])
             err = str(batch["errors"][j])
             if not ok:
@@ -518,6 +789,9 @@ def main() -> None:
             mean_feats.append(means.to(torch.float16 if args.save_dtype == "float16" else torch.float32))
 
     mmap.flush()
+    for aux_mmap in (cls_mmap, self_attn_mmap, avg_self_attn_mmap, disentangled_mmap):
+        if aux_mmap is not None:
+            aux_mmap.flush()
 
     jsonl_dump(image_jsonl_path, sorted(image_rows_out, key=lambda r: r["local_shard_index"]))
 
@@ -534,6 +808,14 @@ def main() -> None:
         "input_size": args.image_size,
         "patch_size": args.patch_size,
         "patch_grid": [args.grid_size, args.grid_size],
+        "num_attention_heads": int(args.num_attention_heads),
+        "saved_features": {
+            "patch_tokens": str(mmap_path),
+            "cls_token": str(aux_paths.get("cls_token", "")),
+            "self_attn_maps": str(aux_paths.get("self_attn_maps", "")),
+            "avg_self_attn": str(aux_paths.get("avg_self_attn", "")),
+            "disentangled_self_attn": str(aux_paths.get("disentangled_self_attn", "")),
+        },
         "num_failed_images": num_failed,
         "elapsed_sec": round(time.time() - start_time, 3),
     }

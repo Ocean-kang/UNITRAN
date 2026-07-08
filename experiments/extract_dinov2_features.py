@@ -39,6 +39,10 @@ def main() -> None:
         "amp_dtype": first_existing(cfg, ["vision.amp_dtype", "amp_dtype"], "float16"),
         "save_image_mean_pt": first_existing(cfg, ["vision.save_image_mean_pt", "save_image_mean_pt"], False),
         "normalize_image_mean": first_existing(cfg, ["vision.normalize_image_mean", "normalize_image_mean"], False),
+        "save_cls_token": first_existing(cfg, ["vision.save_cls_token", "save_cls_token"], False),
+        "save_self_attn_maps": first_existing(cfg, ["vision.save_self_attn_maps", "save_self_attn_maps"], False),
+        "save_avg_self_attn": first_existing(cfg, ["vision.save_avg_self_attn", "save_avg_self_attn"], False),
+        "save_disentangled_self_attn": first_existing(cfg, ["vision.save_disentangled_self_attn", "save_disentangled_self_attn"], False),
         "overwrite": first_existing(cfg, ["runtime.overwrite", "overwrite"], False),
         "write_global_meta": first_existing(cfg, ["vision.write_global_meta", "write_global_meta"], True),
     }
