@@ -28,6 +28,10 @@ vision:
   save_image_mean_pt: true
   normalize_image_mean: true
   write_global_meta: true
+  # 新增
+  save_disentangled_self_attn: true
+  save_self_attn_maps: true
+  save_cls_token: true
 
 runtime:
   batch_size: 32
