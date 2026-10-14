@@ -1,0 +1,8 @@
+_base_: unpaired_coco2014.yaml
+paths:
+  work_dir: feature/unpaired/coco2014_spc_seed42
+  result_dir: outputs/unpaired/coco2014_spc_seed42
+  spc_paragraphs: data/spc/paragraphs_v1.json
+  spc_image_metadata: data/spc/image_data.json
+split:
+  setting: cross_dataset

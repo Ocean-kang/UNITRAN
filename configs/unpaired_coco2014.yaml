@@ -1,0 +1,47 @@
+paths:
+  coco_root: data/mscoco14
+  work_dir: feature/unpaired/coco2014_disjoint_seed42
+  result_dir: outputs/unpaired/coco2014_disjoint_seed42
+split:
+  setting: disjoint
+  seed: 42
+  expected_train_images: 82783
+  expected_eval_images: 40504
+  train_size_per_side: null
+  val_size: 5000
+  test_size: null  # all remaining val2014 IDs; COCO test2014 has no public captions
+vision:
+  model: dinov2_vitb14_reg
+  image_size: 448
+  pooling: patch_mean
+  repo: null  # local DINOv2 checkout, optionally DINOV2_REPO
+  weights: null  # optional local state_dict
+  revision: 7764ea0f912e53c92e82eb78a2a1631e92725fc8
+  batch_size: 8
+  num_workers: 4
+text:
+  model: sentence-transformers/all-mpnet-base-v2
+  revision: e8c3b32edf5434bc2275fc9bab85f82640a19130
+  image_batch_size: 64
+  text_batch_size: 128
+runtime:
+  device: cuda
+  torch_threads: 4
+mapping:
+  seed: 0
+  num_anchor_runs: 30
+  num_clusters: 20
+  qap_runs: 30
+  anchor_subsample: 10000
+  initial_k: 50
+  refine_iters: 100
+  refine_sample: 10000  # preserves UNITRAN preset; official notebook uses 1000
+  refine_k: 50
+  refine2_clusters: 500
+  alpha: 0.5
+  similarity_batch_size: 128
+  similarity_device: cpu
+evaluation:
+  batch_size: 128
+  device: cpu
+  shuffle_seed: 123

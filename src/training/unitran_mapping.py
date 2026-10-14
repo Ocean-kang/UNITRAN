@@ -1,31 +1,17 @@
 import argparse
 import json
-import random
 import warnings
 from pathlib import Path
 
-import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from scipy.linalg import orthogonal_procrustes
-from scipy.optimize import OptimizeWarning, quadratic_assignment
-from sklearn.cluster import KMeans
 from tqdm.auto import trange
 
-warnings.filterwarnings("ignore", category=OptimizeWarning)
-
-
-def set_seed(seed: int):
-    random.seed(seed)
-    np.random.seed(seed)
-    torch.manual_seed(seed)
-    if torch.cuda.is_available():
-        torch.cuda.manual_seed_all(seed)
-
-
-def tensor(x):
-    return torch.tensor(x).float()
+from src.training.mini_vec2vec import (
+    aligned_centroids, cos_sim_matrix, eval_cos_score, fit_unpaired,
+    preprocess, set_seed, sim, tensor, train_orthogonal_linear,
+)
 
 
 def normalize(x, dim=-1):
@@ -45,78 +31,6 @@ def pad_to_same_dim_v2(tensor_a, tensor_b):
         return padded
 
     return pad_tensor(tensor_a, dim_a), pad_tensor(tensor_b, dim_b)
-
-
-def cos_sim_matrix(X, Y, device="cpu", chunk_size=None):
-    if isinstance(X, np.ndarray):
-        X = torch.from_numpy(X)
-    if isinstance(Y, np.ndarray):
-        Y = torch.from_numpy(Y)
-
-    X = X.to(device)
-    Y = Y.to(device)
-
-    X = X / X.norm(dim=-1, keepdim=True).clamp_min(1e-12)
-    Y = Y / Y.norm(dim=-1, keepdim=True).clamp_min(1e-12)
-
-    if chunk_size is None:
-        return (X @ Y.T).cpu()
-
-    outs = []
-    for i in range(0, len(X), chunk_size):
-        outs.append((X[i:i + chunk_size] @ Y.T).cpu())
-    return torch.cat(outs, dim=0)
-
-
-def sim(X, Y):
-    X, Y = tensor(X), tensor(Y)
-    H = torch.eye(len(X), device=X.device) - (1 / len(X)) * torch.ones((len(X), len(X)), device=X.device)
-    return H @ X @ Y.T @ H
-
-
-def train_orthogonal_linear(X, Y):
-    solution, _ = orthogonal_procrustes(X, Y)
-    return tensor(solution)
-
-
-def eval_cos_score(X_eval, Y_eval, W):
-    return torch.cosine_similarity(X_eval @ W, Y_eval, dim=-1).mean().item()
-
-
-def aligned_centroids(
-    X_train,
-    Y_train,
-    n_qap_runs=30,
-    n_clusters=20,
-    method="2opt",
-    subsample=10_000,
-    seed=0,
-):
-    options = {"P0": "randomized", "maximize": True}
-
-    if subsample is not None:
-        X_train = X_train[torch.randperm(len(X_train))[:subsample]]
-        Y_train = Y_train[torch.randperm(len(Y_train))[:subsample]]
-
-    clusterer1 = KMeans(n_clusters=n_clusters, n_init=10, random_state=seed)
-    clusterer1.fit(X_train)
-
-    clusterer2 = KMeans(n_clusters=n_clusters, n_init=10, random_state=seed + 1)
-    clusterer2.fit(Y_train)
-
-    centers1, centers2 = clusterer1.cluster_centers_, clusterer2.cluster_centers_
-
-    kernel1 = sim(centers1, centers1).float()
-    kernel2 = sim(centers2, centers2).float()
-
-    best_quad = None
-    for _ in range(n_qap_runs):
-        new_quad = quadratic_assignment(kernel1, kernel2, method=method, options=options)
-        if best_quad is None or best_quad.fun < new_quad.fun:
-            best_quad = new_quad
-
-    centers2 = centers2[best_quad.col_ind]
-    return tensor(centers1), tensor(centers2)
 
 
 def compute_final_metrics(X_eval, Y_eval, W=None, model=None, device="cuda"):
@@ -186,7 +100,7 @@ def resolve_data_paths(args):
     return train_path, eval_path
 
 
-def load_mapping_data(args, pad_dims: bool):
+def load_mapping_data(args, pad_dims: bool, normalize_data: bool = True):
     train_path, eval_path = resolve_data_paths(args)
     embed_A, embed_B = load_feature_pair(train_path, args.source_key, args.target_key)
     if pad_dims:
@@ -210,12 +124,12 @@ def load_mapping_data(args, pad_dims: bool):
             train_A, train_B = embed_A, embed_B
             eval_A, eval_B = embed_A, embed_B
 
-    mean_A = train_A.mean(dim=0)
-    mean_B = train_B.mean(dim=0)
-    X_train = normalize(train_A - mean_A)
-    Y_train = normalize(train_B - mean_B)
-    X_eval = normalize(eval_A - eval_A.mean(dim=0))
-    Y_eval = normalize(eval_B - eval_B.mean(dim=0))
+    if normalize_data:
+        mean_A, mean_B = train_A.mean(dim=0), train_B.mean(dim=0)
+        X_train, Y_train = normalize(train_A - mean_A), normalize(train_B - mean_B)
+        X_eval, Y_eval = normalize(eval_A - mean_A), normalize(eval_B - mean_B)
+    else:
+        X_train, Y_train, X_eval, Y_eval = train_A, train_B, eval_A, eval_B
 
     print(f"[load] train={train_path}")
     if eval_path is not None:
@@ -315,102 +229,29 @@ def gen_loss_fn(disc, fake):
 
 
 def train_mini_vec2vec(args):
-    X_all, Y_all, X_eval, Y_eval, meta = load_mapping_data(args, pad_dims=True)
-    n = len(X_all)
-    X_train, Y_train = X_all[: n // 2], Y_all[n // 2 :]
-
-    print("[stage 1] approximate matching by aligned centroids")
-    all_centers1, all_centers2 = [], []
-    for i in trange(args.num_anchor_runs):
-        centers1, centers2 = aligned_centroids(
-            X_train,
-            Y_train,
-            n_qap_runs=args.qap_runs,
-            n_clusters=args.num_clusters,
-            subsample=args.anchor_subsample,
-            seed=args.seed + i,
-        )
-        all_centers1.append(centers1)
-        all_centers2.append(centers2)
-
-    all_centers1 = torch.cat(all_centers1, dim=0)
-    all_centers2 = torch.cat(all_centers2, dim=0)
-
-    print("[stage 2] initial transformation")
-    sim1 = cos_sim_matrix(X_train, all_centers1)
-    sim2 = cos_sim_matrix(Y_train, all_centers2)
-    sim_similarity = cos_sim_matrix(sim1, sim2)
-
-    top_similar = sim_similarity.topk(dim=-1, k=args.initial_k).indices
-    coefs = torch.ones(args.initial_k) / args.initial_k
-    Y_matched = Y_train[top_similar].transpose(-1, -2) @ coefs
-
-    W = train_orthogonal_linear(X_train, Y_matched)
-    initial_score = eval_cos_score(X_eval, Y_eval, W)
-    print(f"[initial] eval cosine = {initial_score:.4f}")
-
-    print("[stage 3.1] refine-1 ICP-style nearest-neighbor refinement")
-    history = {
-        "method": args.method,
-        "source": args.source,
-        "target": args.target,
-        "seed": args.seed,
-        **meta,
-        "initial_cosine": initial_score,
-        "refine1_cosine": [],
-    }
-
-    for it in trange(args.refine_iters):
-        sample_points = X_train[torch.randperm(len(X_train))[:args.refine_sample]]
-        sample_similarities = cos_sim_matrix(sample_points @ W, Y_train)
-        neighbors = sample_similarities.topk(dim=-1, k=args.refine_k).indices
-        sample_matched = Y_train[neighbors].mean(dim=1)
-
-        W_new = train_orthogonal_linear(sample_points, sample_matched)
-        W = (1 - args.alpha) * W + args.alpha * W_new
-
-        score = eval_cos_score(X_eval, Y_eval, W)
-        history["refine1_cosine"].append(score)
-        print(f"[refine1] iter={it + 1:03d}, eval cosine={score:.4f}")
-
-    print("[stage 3.2] refine-2 cluster-based correction")
-    kmeans1 = KMeans(n_clusters=args.refine2_clusters, n_init=10, random_state=args.seed)
-    kmeans1.fit(X_train)
-    centers1 = tensor(kmeans1.cluster_centers_)
-
-    kmeans2 = KMeans(
-        n_clusters=args.refine2_clusters,
-        init=(centers1 @ W).numpy(),
-        n_init=1,
-        random_state=args.seed,
-    )
-    kmeans2.fit(Y_train)
-    centers2 = tensor(kmeans2.cluster_centers_)
-
-    W_new = train_orthogonal_linear(centers1, centers2)
-    W = (1 - args.alpha) * W + args.alpha * W_new
-
-    refine2_score = eval_cos_score(X_eval, Y_eval, W)
-    print(f"[refine2] eval cosine = {refine2_score:.4f}")
-
-    print("[final] computing Top-1 Accuracy and Average Rank")
-    top1, avg_rank = compute_final_metrics(X_eval, Y_eval, W=W, device=args.device)
-
-    history["refine2_cosine"] = refine2_score
-    history["top1"] = top1
-    history["avg_rank"] = avg_rank
-    print(f"[result] Top-1 Accuracy = {top1:.6f}")
-    print(f"[result] Average Rank   = {avg_rank:.6f}")
-
+    """Compatibility entry for legacy row-based banks; core fitting is shared."""
+    warnings.warn("Legacy feature-row protocol cannot establish image-ID disjointness. "
+                  "Use experiments/unpaired.py for COCO2014 experiments.", RuntimeWarning)
+    X_all, Y_all, X_eval, Y_eval, meta = load_mapping_data(args, pad_dims=True, normalize_data=False)
+    n = min(len(X_all), len(Y_all))
+    X_train, Y_train = X_all[:n // 2], Y_all[n // 2:]
+    keys = ("seed", "num_anchor_runs", "num_clusters", "qap_runs", "anchor_subsample",
+            "initial_k", "refine_iters", "refine_sample", "refine_k", "refine2_clusters", "alpha")
+    params = {key: getattr(args, key) for key in keys}
+    params.update(similarity_batch_size=128, similarity_device="cpu")
+    state, history = fit_unpaired(X_train, Y_train, params)
+    xe = preprocess(X_eval, state["mean_source"], state["dim"])
+    ye = preprocess(Y_eval, state["mean_target"], state["dim"])
+    weight = state["weight"]
+    top1, avg_rank = compute_final_metrics(xe, ye, W=weight, device=args.device)
+    history.update(method=args.method, source=args.source, target=args.target, seed=args.seed,
+                   refine2_cosine=eval_cos_score(xe, ye, weight), top1=top1, avg_rank=avg_rank, **meta)
     name = f"{args.method}_{args.source}_to_{args.target}_seed{args.seed}"
-    out_dir = Path(args.out_dir)
-    out_dir.mkdir(parents=True, exist_ok=True)
-    torch.save(W, out_dir / f"W_{name}.pt")
-    with open(out_dir / f"result_{name}.json", "w") as f:
-        json.dump(history, f, indent=2)
-
-    print(f"[save] {out_dir / f'W_{name}.pt'}")
-    print(f"[save] {out_dir / f'result_{name}.json'}")
+    out = Path(args.out_dir)
+    out.mkdir(parents=True, exist_ok=True)
+    torch.save(weight, out / f"W_{name}.pt")
+    torch.save(state, out / f"preprocessing_{name}.pt")
+    (out / f"result_{name}.json").write_text(json.dumps(history, indent=2), encoding="utf-8")
 
 
 def train_vec2vec(args):

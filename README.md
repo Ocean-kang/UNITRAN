@@ -1,301 +1,107 @@
 # UNITRAN
 
-**UNITRAN** is a compact research codebase for building DINOv2 vision features, LLM-generated text atoms, density evaluation banks, and unpaired vision-text mapping models.
+mini-vec2vec alignment between frozen **DINOv2** image embeddings and **MPNet** text embeddings without supplied training pairs. The primary experiment covers **all 82,783 train2014 image IDs**. Each image gets one visual vector; each original caption is normalized, then captions of the same image are averaged and normalized again.
 
-The maintained workflow is config-driven: use `experiments/*.py` with `configs/*.yaml`. Core implementations live in `src/`; generated features and experiment outputs are kept outside version control.
+## Two verified unpaired settings
 
-## Method Overview
+| Config | Vision training | Text training | Supplied pairs |
+|---|---|---|---:|
+| `configs/unpaired_coco2014.yaml` | 41,391 train2014 IDs | Captions of the other 41,392 IDs | 0 |
+| `configs/unpaired_cross_dataset.yaml` | All 82,783 train2014 images | Stanford Paragraph Captions (SPC), independent corpus | 0 |
 
-UNITRAN follows a lightweight vision-text distribution alignment pipeline:
+These follow Rosetta's [disjoint_split](https://github.com/dominik-schnaus/unpaired-rosetta/blob/fdfad84ea488f29702a61a455be71622c4ff5d49/unpaired_rosetta/evaluation.py) and [COCO-images × SPC-captions definition](https://github.com/dominik-schnaus/unpaired-rosetta/blob/fdfad84ea488f29702a61a455be71622c4ff5d49/experiments/cross_dataset.py), here using mini-vec2vec. Visual Genome metadata is required to exclude SPC images linked to any COCO train/evaluation image. Excluded IDs and resulting sizes are recorded. This safeguard is additional to the referenced implementation; the new cross-dataset results are not an exact reproduction of Rosetta's reported numbers.
 
-1. Extract DINOv2 patch tokens from COCO images.
-2. Build global patch clusters or per-image local patch centers.
-3. Generate text atoms from COCO captions with an LLM backend.
-4. Encode original captions and expanded text atoms into text features.
-5. Compare vision/text feature distributions with density metrics.
-6. Train a mini-vec2vec / vec2vec-style unpaired mapping between feature spaces.
+One seeded permutation partitions COCO train IDs. The two feature banks are independently shuffled during fitting. There is no paired-row loss, shared-row sampling or second half-split. The mapper receives only two feature matrices and hyperparameters.
 
-The repository does not modify COCO annotations or pretrained model weights.
+## Install and prepare data
 
-## Repository Structure
-
-```text
-configs/        Maintained YAML configs for the supported workflows
-experiments/    Recommended runnable Python entry points
-src/            Implementation modules for datasets, features, clustering, evaluation, training, and visualization
-scripts/        Thin shell wrappers around the recommended experiment commands
-external/       Optional Llama-compatible code used by the text-atom backend
-docs/           Additional workflow notes and output-format descriptions
-```
-
-Runtime directories are ignored by git:
-
-```text
-data/           User-prepared datasets, e.g. MSCOCO2014 / MSCOCO2017
-feature/        Reusable intermediate features: patch tokens, local centers, text embeddings, prototypes
-outputs/        Experiment reports, visualization images, mapping checkpoints, and logs
-```
-
-## Installation
+Use Python 3.11:
 
 ```bash
+python -m pip install -r requirements.txt
+# Or:
 conda env create -f conda.yaml
 conda activate unitran
 ```
 
-Install any extra packages required by your selected vision or text backend, such as `torch`, `torchvision`, `sentence-transformers`, `transformers`, and DINOv2 dependencies.
-
-## Dataset Preparation
-
-Prepare COCO data under `data/`:
+Install a matching CUDA build of PyTorch/torchvision for your GPU when needed. CPU runs use `--set runtime.device=cpu`. `OMP_NUM_THREADS=1` is useful for small Windows KMeans tests. Encoder revisions are pinned. Offline use: set `vision.repo` or `DINOV2_REPO` to a clean DINOv2 checkout at the configured revision; optionally set `vision.weights` to a local state_dict; set `text.model` to a local SentenceTransformer directory. Local source/model/weight contents enter cache fingerprints.
 
 ```text
 data/mscoco14/
-├── annotations/
 ├── train2014/
-└── val2014/
-
-data/mscoco17/
-├── annotations/
-├── train2017/
-├── val2017/
-├── panoptic_train2017/
-└── panoptic_val2017/
+├── val2014/
+└── annotations/
+    ├── captions_train2014.json
+    └── captions_val2014.json
+data/spc/                    # cross-dataset only
+├── paragraphs_v1.json
+└── image_data.json          # Visual Genome image_id and coco_id provenance
 ```
 
-Most configs default to `mscoco14`. Switch to COCO2017 with:
+Obtain SPC from the [authors](https://cs.stanford.edu/people/ranjaykrishna/im2p/index.html) and source metadata from [Visual Genome](https://visualgenome.org/api/v0/api_home.html). No SPC image pixels or Llama weights are needed. Like the referenced protocol, SPC paragraphs form the external training corpus; evaluation is exclusively on held-out COCO images.
+
+All **40,504 val2014 IDs** are partitioned into **5,000 validation** and **35,504 test** IDs by default. They retain true identities, are disjoint from training and each other, and use saved training statistics. These are internal holdouts of val2014, not the official COCO test2014 server split. Freeze model choices before evaluating test; tuning after inspecting test scores invalidates a held-out claim.
+
+## Run
+
+From the repository root:
 
 ```bash
---set active_dataset=mscoco17
+python experiments/unpaired.py all --config configs/unpaired_coco2014.yaml
+python experiments/unpaired.py all --config configs/unpaired_cross_dataset.yaml
 ```
 
-## Feature Extraction
-
-Extract DINOv2 patch tokens:
+Separate stages permit cache reuse and reserving test evaluation:
 
 ```bash
-python experiments/extract_dinov2_features.py --config configs/extract_dinov2.yaml
+python experiments/unpaired.py prepare
+python experiments/unpaired.py extract --bank vision_train
+python experiments/unpaired.py extract --bank text_train
+python experiments/unpaired.py train
+python experiments/unpaired.py extract --bank vision_val
+python experiments/unpaired.py extract --bank text_val
+python experiments/unpaired.py evaluate --split val
+# After freezing all choices:
+python experiments/unpaired.py extract --bank vision_test
+python experiments/unpaired.py extract --bank text_test
+python experiments/unpaired.py evaluate --split test
+python experiments/unpaired.py audit
 ```
 
-Default output:
+Pass the same `--config` to every stage. Use `--set KEY=VALUE` for overrides. To subsample training set `split.train_size_per_side` and new work/result directories. `split.val_size=null` means half the evaluation pool; `split.test_size=null` uses the remainder. Counts are checked against full annotation sizes; missing captions or decode errors are never silently dropped.
+
+The algorithm remains KMeans/QAP anchors → relative-neighbor Procrustes → NN refinement → cluster correction. QAP now selects the **maximum** objective and uses seeded valid random 2-opt starts. The UNITRAN preset retains `refine_sample=10000`; the upstream notebook used 1000. Saved train means and these fixes change old scores. Directions are fitted independently: an average of orthogonal maps need not be orthogonal, so reverse fitting does not assume `W.T`.
+
+## Artifacts and validation
 
 ```text
-feature/vision/coco2014_dinov2_vitb14_reg_448/
+feature/unpaired/<setting>/
+  vision_train.jsonl, text_train.jsonl, paired_val.jsonl, paired_test.jsonl
+  split_meta.json
+  vision_train.pt, text_train.pt
+  vision_val.pt, text_val.pt, vision_test.pt, text_test.pt
+outputs/unpaired/<setting>/
+  mapping.pt                  # both maps, train means, config, bank/code provenance
+  resolved_config.json, training.json
+  retrieval_val.json, retrieval_test.json, data_audit.json
 ```
 
-For COCO2017:
+Cache validation covers manifest content/order, caption content, encoder settings/revisions and finite/nonzero features. Checkpoints hash training banks and the split protocol. Changing a split requires a new `work_dir`; `--force` replaces explicit banks/checkpoints, not manifests. Safe tensor loading uses `weights_only=True`.
+
+I2T/T2I report FOSCTTM, mean rank and Recall@1/5/10 for **image-level caption means**, with identity lookup after independent query/key shuffles and midrank ties. This is not the usual 5-caption COCO benchmark. Score blocks avoid full NxM matrices; exact search still costs O(N×M), so full-size timing and memory require real measurement.
 
 ```bash
-python experiments/extract_dinov2_features.py \
-  --config configs/extract_dinov2.yaml \
-  --set active_dataset=mscoco17
+python -m unittest discover -s tests -v
+python tools/smoke_check.py
+python tools/audit_repository.py   # ignored full baseline AST/call-site report
 ```
 
-## Clustering
+See [audit](docs/audit.md), [all 76 baseline files](docs/audit_inventory.md), [migration/deletions](docs/migration.md), and [validation limits](docs/validation.md). CPU regressions use synthetic data and stub encoders. Actual COCO/SPC data, pretrained feature extraction and CUDA execution have not been verified here; no successful full-data run or retrieval quality is claimed.
 
-Run global patch-token clustering:
+## Structure and optional experiments
 
-```bash
-python experiments/run_global_patch_cluster.py --config configs/cluster_global.yaml
-```
+The main entry is `experiments/unpaired.py`. Protocols/encoders/artifacts live in `src/unpaired/`; reusable mapping/metrics live in `src/training/mini_vec2vec.py` and `src/evaluation/retrieval.py`. Existing config helpers and DINOv2 preprocessing are reused.
 
-Run per-image local patch clustering:
+Referenced patch/local/global clustering, Llama atoms, density, CLIP↔DINO, class prototypes, adversarial vec2vec and visualizations remain in [optional legacy workflows](docs/legacy_workflows.md), using `requirements-optional.txt`. Legacy row banks cannot certify the primary image-ID protocol. The duplicate `experiments/unpaired_mpnet/` subtree is merged into the core.
 
-```bash
-python experiments/run_local_patch_cluster.py --config configs/cluster_local.yaml
-```
-
-Default local-center output:
-
-```text
-feature/vision/coco2014_dinov2_vitb14_reg_448_local_k20/
-```
-
-## Text Atom Generation
-
-Generate structured text atoms from sampled COCO captions:
-
-```bash
-python experiments/run_text_atoms.py --config configs/text_atoms.yaml
-```
-
-Default output:
-
-```text
-feature/text/coco2014_llama_atoms_k20/text_atoms.jsonl
-```
-
-The default config assumes a local HuggingFace-style Llama directory:
-
-```text
-Meta-Llama-3-8B-Instruct-HF/
-```
-
-Edit `configs/text_atoms.yaml` when your model path or backend differs.
-
-## Density Evaluation
-
-Build local-center/text feature banks and write density reports:
-
-```bash
-python experiments/run_density_eval.py --config configs/density_local.yaml --stage all
-```
-
-Stages can also be run separately:
-
-```bash
-python experiments/run_density_eval.py --config configs/density_local.yaml --stage sample
-python experiments/run_density_eval.py --config configs/density_local.yaml --stage features
-python experiments/run_density_eval.py --config configs/density_local.yaml --stage report
-```
-
-Reusable feature banks are written to:
-
-```text
-feature/density/coco2014_n1000_k20/
-```
-
-Evaluation reports are written to:
-
-```text
-outputs/density/coco2014_n1000_k20/
-```
-
-For a different sample size, override both the sample count and output directories:
-
-```bash
-python experiments/run_density_eval.py \
-  --config configs/density_local.yaml \
-  --stage all \
-  --set data.num_images=5000 \
-  --set feature.out_dir=feature/density/coco2014_n5000_k20 \
-  --set experiment.output_dir=outputs/density/coco2014_n5000_k20
-```
-
-## Training
-
-Train the mapping model:
-
-```bash
-python experiments/train_mapping.py --config configs/train_mapping.yaml
-```
-
-The mapping method is selected in the config:
-
-```yaml
-mapping:
-  method: mini_vec2vec   # or vec2vec
-```
-
-Default outputs:
-
-```text
-outputs/mapping/coco2014_n1000_k20/
-```
-
-## Evaluation
-
-Extract class-level evaluation prototypes from COCO masks:
-
-```bash
-python experiments/extract_eval_prototypes.py --config configs/eval_prototypes.yaml
-```
-
-Default output for COCO2017:
-
-```text
-feature/eval/mscoco2017/mscoco2017_eval_prototypes.pt
-```
-
-Train mapping with an eval prototype file:
-
-```bash
-python experiments/train_mapping.py --config configs/train_mapping_eval.yaml
-```
-
-## Visualization
-
-Run the default cluster visualization:
-
-```bash
-python experiments/run_visualize_cluster.py --config configs/visualize_cluster.yaml
-```
-
-Supported visualization modes are configured through `visualization.mode`:
-
-```text
-cluster_topk
-cluster_extremes
-image_cls_attention
-image_local_centers
-embedding_2d
-```
-
-Default visualization outputs:
-
-```text
-outputs/visualize/
-```
-
-## Output Directory Policy
-
-UNITRAN separates reusable intermediate features from experiment results:
-
-```text
-feature/vision/     DINOv2 patch tokens, global clusters, local centers
-feature/text/       LLM-generated text atoms and reusable text-side intermediates
-feature/density/    Density-eval feature banks and sampled image lists
-feature/eval/       Class-level eval prototypes
-outputs/density/    Density reports and resolved configs
-outputs/visualize/  Visualization images and metadata
-outputs/mapping/    Mapping checkpoints and metrics
-```
-
-## Scripts
-
-Shell wrappers are provided for the maintained flow:
-
-```bash
-bash scripts/run_1_extract.sh
-bash scripts/run_2_global_cluster.sh
-bash scripts/run_2_local_cluster.sh
-bash scripts/run_3_text_atoms.sh
-bash scripts/run_4_density_eval.sh
-bash scripts/run_5_visualize.sh
-```
-
-Run a lightweight sanity check:
-
-```bash
-bash scripts/smoke_check.sh
-```
-
-## Common Issues
-
-**Where should new results be saved?**  
-Save reusable feature banks under `feature/` and experiment reports, visualizations, logs, or checkpoints under `outputs/`.
-
-**How do I switch from COCO2014 to COCO2017?**  
-Use the same maintained config and override `active_dataset`, for example `--set active_dataset=mscoco17`.
-
-**Do I need to regenerate text atoms during every density evaluation?**  
-No. Generate `text_atoms.jsonl` once, then let density evaluation read it from `feature/text/...`.
-
-**Are distribution metrics enough to prove semantic alignment?**  
-No. MMD, SWD, and coverage-style metrics describe geometric distribution differences. Use them together with retrieval/eval prototypes and visualization.
-
-## Citation
-
-If this repository is used in a paper, add the project citation here.
-
-```bibtex
-@misc{unitran,
-  title  = {UNITRAN: Unpaired Vision-Text Distribution Alignment},
-  author = {Anonymous},
-  year   = {2026}
-}
-```
-
-## Acknowledgement
-
-This repository builds on ideas and tooling from DINOv2, MSCOCO, Llama / HuggingFace text generation, sentence-transformers, and vec2vec-style unpaired mapping methods.
+MIT license retained. References: [mini-vec2vec](https://arxiv.org/abs/2510.02348), [DINOv2](https://github.com/facebookresearch/dinov2), [MPNet encoder](https://huggingface.co/sentence-transformers/all-mpnet-base-v2).
