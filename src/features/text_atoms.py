@@ -57,32 +57,6 @@ def existing_ids(path: Path) -> set[int]:
     return done
 
 
-# def build_prompt(captions: List[str], max_atoms: int, num_atoms: int = 0) -> str:
-#     caps = "\n".join([f"{i+1}. {c}" for i, c in enumerate(captions)])
-#     atom_rule = f"exactly {num_atoms}" if num_atoms > 0 else f"8 to {max_atoms}"
-#     return f"""You are rewriting MSCOCO image captions for a vision-language representation experiment.
-
-# Original captions:
-# {caps}
-
-# Task:
-# 1. Write one grounded long caption in English. Only use details that are directly supported by the captions or highly conservative visual implications.
-# 2. Split the result into short semantic atoms. Each atom should describe ONE visual unit: object, part, attribute, material, texture, action, spatial relation, or background/stuff.
-# 3. Avoid hallucinated details such as exact colors, brands, counts, or locations unless the captions clearly support them.
-# 4. Output valid JSON only. Do not add markdown.
-
-# JSON schema:
-# {{
-#   "long_caption": "...",
-#   "atoms": ["short atom 1", "short atom 2", "..."]
-# }}
-
-# Constraints: 
-# - Number of atoms: {atom_rule}.
-# - Each atom: 4 to 18 words.
-# - No duplicate atoms.
-# """
-
 def build_prompt(captions: List[str], max_atoms: int, num_atoms: int = 0) -> str:
     caps = "\n".join([f"{i+1}. {c}" for i, c in enumerate(captions)])
     atom_rule = f"exactly {num_atoms}" if num_atoms > 0 else f"8 to {max_atoms}"

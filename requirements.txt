@@ -1,0 +1,12 @@
+# Core and encoder dependencies. Install a matching torchvision wheel for your torch build.
+numpy==1.26.4
+scipy==1.16.1
+scikit-learn==1.7.1
+PyYAML==6.0.2
+Pillow==11.3.0
+tqdm==4.67.1
+threadpoolctl==3.6.0
+torch==2.8.0
+torchvision==0.23.0
+sentence-transformers==5.1.1
+transformers==4.56.2
